@@ -1,0 +1,198 @@
+# Shift Configuration
+# Two-tier lookup: code_mappings (primary) -> color_fallbacks (secondary)
+
+# Primary: Direct code-to-shift mappings
+# Each code maps to shift timing
+code_mappings:
+  # PM Shifts (Pink/Salmon colored)
+  E0M8:
+    start: "13:30"
+    end: "21:30"
+    same_day: true
+    description: "PM Shift"
+  
+  E13H:
+    start: "13:00"
+    end: "21:00"
+    same_day: true
+    description: "PM Shift (Early)"
+
+  # Night Shifts (Blue colored)
+  N2111:
+    start: "21:00"
+    end: "08:00"
+    same_day: false
+    description: "Night Shift"
+
+  # AM/Day Shifts (Green colored)
+  D0G8:
+    start: "07:30"
+    end: "15:30"
+    same_day: true
+    description: "AM Shift"
+  
+  D0G9:
+    start: "07:30"
+    end: "15:30"
+    same_day: true
+    description: "AM Shift"
+  
+  D0GG:
+    start: "07:30"
+    end: "15:30"
+    same_day: true
+    description: "AM Shift"
+  
+  D0GH:
+    start: "07:30"
+    end: "15:30"
+    same_day: true
+    description: "AM Shift"
+  
+  D077S:
+    start: "07:30"
+    end: "15:30"
+    same_day: true
+    description: "AM Shift"
+
+  # Day Off / Rest Day (Gray colored)
+  DO:
+    all_day: true
+    description: "Day Off"
+  
+  RD:
+    all_day: true
+    description: "Rest Day"
+
+  # Leave Types (Yellow colored)
+  AL:
+    all_day: true
+    description: "Annual Leave"
+  
+  HL:
+    all_day: true
+    description: "Holiday Leave"
+  
+  FCL:
+    all_day: true
+    description: "Leave"
+
+  # Training (Green/Teal colored)
+  TD:
+    start: "08:30"
+    end: "17:00"
+    same_day: true
+    description: "Training Day"
+  
+  TDE:
+    start: "08:30"
+    end: "17:00"
+    same_day: true
+    description: "Training Day"
+  
+  TR_FD:
+    start: "08:00"
+    end: "18:00"
+    same_day: true
+    description: "Training (Full Day)"
+
+  # Medical/Course (Purple colored)
+  MC:
+    all_day: true
+    description: "Medical/Course"
+  
+  MCU:
+    all_day: true
+    description: "Medical/Course"
+  
+  PH:
+    all_day: true
+    description: "Public Holiday"
+
+  # Other
+  BOILU:
+    all_day: true
+    description: "BOILU"
+
+
+# Secondary: Color-based fallback mappings
+# Used when shift code is not found in code_mappings
+# Colors are defined as RGB ranges for detection
+color_fallbacks:
+  pink:
+    # Pink/Salmon: E0M8, E13H type shifts
+    rgb_range:
+      r: [200, 255]
+      g: [100, 180]
+      b: [150, 220]
+    shift:
+      start: "13:30"
+      end: "21:30"
+      same_day: true
+      description: "PM Shift (detected by color)"
+
+  blue:
+    # Blue: Night shifts
+    rgb_range:
+      r: [80, 150]
+      g: [150, 220]
+      b: [200, 255]
+    shift:
+      start: "21:00"
+      end: "08:00"
+      same_day: false
+      description: "Night Shift (detected by color)"
+
+  green:
+    # Green: AM/Day shifts
+    rgb_range:
+      r: [150, 220]
+      g: [200, 255]
+      b: [100, 180]
+    shift:
+      start: "07:30"
+      end: "15:30"
+      same_day: true
+      description: "AM Shift (detected by color)"
+
+  yellow:
+    # Yellow: Leave types
+    rgb_range:
+      r: [230, 255]
+      g: [230, 255]
+      b: [100, 180]
+    shift:
+      all_day: true
+      description: "Leave (detected by color)"
+
+  gray:
+    # Gray: Day off / Rest day
+    rgb_range:
+      r: [180, 220]
+      g: [180, 220]
+      b: [180, 220]
+    shift:
+      all_day: true
+      description: "Day Off (detected by color)"
+
+  purple:
+    # Purple: Medical/Course/PH
+    rgb_range:
+      r: [180, 230]
+      g: [150, 200]
+      b: [220, 255]
+    shift:
+      all_day: true
+      description: "Medical/Course (detected by color)"
+
+  teal:
+    # Teal/Dark blue: Training
+    rgb_range:
+      r: [80, 140]
+      g: [160, 220]
+      b: [180, 240]
+    shift:
+      start: "08:00"
+      end: "18:00"
+      same_day: true
+      description: "Training (detected by color)"
