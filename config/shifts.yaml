@@ -4,6 +4,55 @@
 # Primary: Direct code-to-shift mappings
 # Each code maps to shift timing
 code_mappings:
+  # AM/Day Shifts (Light Green colored)
+  D077S:
+    start: "07:30"
+    end: "14:30"
+    same_day: true
+    description: "AM Shift (Short)"
+  
+  D0GG:
+    start: "07:30"
+    end: "15:00"
+    same_day: true
+    description: "AM Shift (Short)"
+  
+  D0G8:
+    start: "07:30"
+    end: "15:30"
+    same_day: true
+    description: "AM Shift"
+
+  D0GH:
+    start: "07:30"
+    end: "16:00"
+    same_day: true
+    description: "AM Shift"
+
+  D0G9:
+    start: "07:30"
+    end: "16:30"
+    same_day: true
+    description: "AM Shift (Long)"
+
+  D0GI:
+    start: "07:30"
+    end: "17:00"
+    same_day: true
+    description: "AM Shift (Long)"
+
+  D09F:
+    start: "09:00"
+    end: "16:30"
+    same_day: true
+    description: "Swing Shift (Short)"
+
+  D098:
+    start: "09:00"
+    end: "17:00"
+    same_day: true
+    description: "Swing Shift"
+
   # PM Shifts (Pink/Salmon colored)
   E0M8:
     start: "13:30"
@@ -13,9 +62,15 @@ code_mappings:
   
   E13H:
     start: "13:00"
-    end: "21:00"
+    end: "21:30"
     same_day: true
     description: "PM Shift (Early)"
+
+  E139:
+    start: "13:00"
+    end: "22:00"
+    same_day: true
+    description: "PM Shift (Late)"
 
   # Night Shifts (Blue colored)
   N2111:
@@ -24,37 +79,32 @@ code_mappings:
     same_day: false
     description: "Night Shift"
 
-  # AM/Day Shifts (Green colored)
-  D0G8:
-    start: "07:30"
-    end: "15:30"
+  # Training (Medium Green colored)
+  TD:
+    start: "08:30"
+    end: "17:30"
     same_day: true
-    description: "AM Shift"
+    description: "Training Day"
   
-  D0G9:
-    start: "07:30"
-    end: "15:30"
+  TDE:
+    start: "08:30"
+    end: "17:30"
     same_day: true
-    description: "AM Shift"
+    description: "Training Day (External)"
   
-  D0GG:
-    start: "07:30"
-    end: "15:30"
+  TR_FD:
+    start: "08:30"
+    end: "17:30"
     same_day: true
-    description: "AM Shift"
-  
-  D0GH:
-    start: "07:30"
-    end: "15:30"
-    same_day: true
-    description: "AM Shift"
-  
-  D077S:
-    start: "07:30"
-    end: "15:30"
-    same_day: true
-    description: "AM Shift"
+    description: "Trainer - Full Day"
 
+  # Project Shift
+  D08...:
+    start: "08:00"
+    end: "17:00"
+    same_day: true
+    description: "Project Shift"
+  
   # Day Off / Rest Day (Gray colored)
   DO:
     all_day: true
@@ -69,50 +119,47 @@ code_mappings:
     all_day: true
     description: "Annual Leave"
   
+  ALU:
+    all_day: true
+    description: "Annual Leave (Unapproved)"
+  
   HL:
     all_day: true
     description: "Hospitalisation Leave"
+
+  HLU:
+    all_day: true
+    description: "Hospitalisation Leave (Unapproved)"
   
   FCL:
     all_day: true
     description: "Family Care Leave"
-
-  # Training (Green/Teal colored)
-  TD:
-    start: "08:30"
-    end: "17:00"
-    same_day: true
-    description: "Training Day"
   
-  TDE:
-    start: "08:30"
-    end: "17:00"
-    same_day: true
-    description: "Training Day"
-  
-  TR_FD:
-    start: "08:00"
-    end: "18:00"
-    same_day: true
-    description: "Training (Full Day)"
+  FCLU:
+    all_day: true
+    description: "Family Care Leave (Unapproved)"
 
-  # Medical/Course (Purple colored)
+  # Medical (Purple colored)
   MC:
     all_day: true
-    description: "Medical/Course"
+    description: "Sick Leave"
   
   MCU:
     all_day: true
-    description: "Medical/Course"
+    description: "Sick Leave (Unapproved)"
   
+  # Other
   PH:
     all_day: true
     description: "Public Holiday"
 
-  # Other
   BOILU:
     all_day: true
-    description: "BOILU"
+    description: "Birthday Off-in-lieu (Unapproved)"
+
+  DOL:
+    all_day: true
+    description: "Off-in-lieu"
 
 
 # Secondary: Color-based fallback mappings
@@ -143,8 +190,8 @@ color_fallbacks:
       same_day: false
       description: "Night Shift (detected by color)"
 
-  green:
-    # Green: AM/Day shifts
+  light_green:
+    # Light Green: AM/Day shifts
     rgb_range:
       r: [150, 220]
       g: [200, 255]
@@ -154,6 +201,18 @@ color_fallbacks:
       end: "15:30"
       same_day: true
       description: "AM Shift (detected by color)"
+
+  dark_green:
+    # Dark Green: Project
+    rgb_range:
+      r: [60, 100]
+      g: [140, 180]
+      b: [100, 140]
+    shift:
+      start: "08:00"
+      end: "17:00"
+      same_day: true
+      description: "Project (detected by color)"
 
   yellow:
     # Yellow: Leave types
@@ -173,7 +232,7 @@ color_fallbacks:
       b: [145, 175]
     shift:
       all_day: true
-      description: "Day Off (detected by color)"
+      description: "Unapproved Leaves (detected by color)"
 
   purple:
     # Purple: Medical/Course/PH
@@ -185,8 +244,8 @@ color_fallbacks:
       all_day: true
       description: "Medical/Course (detected by color)"
 
-  dark_green:
-    # Dark Green: Training
+  medium_green:
+    # Green: Training
     rgb_range:
       r: [145, 175]
       g: [185, 215]
@@ -198,11 +257,11 @@ color_fallbacks:
       description: "Training (detected by color)"
 
   BOILU:
-    # Olive: Birthday Off-in-lieu
+    # Olive: Birthday Off-in-lieu (Unapproved)
     rgb_range:
       r: [130, 160]
       g: [130, 160]
       b: [45, 75]
     shift:
       all_day: true
-      description: "Birthday Off-in-lieu (detected by OLIVE color)"
+      description: "Birthday Off-in-lieu (Unapproved) (detected by OLIVE color)"
