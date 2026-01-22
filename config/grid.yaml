@@ -1,0 +1,24 @@
+# =============================================================================
+# GRID BOUNDARY CONFIGURATION (iPhone screenshot calibration)
+# =============================================================================
+# These values define the calendar grid boundaries as percentages of image size.
+# Adjust these if the screenshot source changes (different phone/app version).
+#
+# To calibrate:
+#   1. Set DEBUG_SAVE_CELLS=true in .env
+#   2. Send an image to the bot
+#   3. Check debug/<month>/_grid_overlay.png
+#   4. Adjust values below until the red rectangle aligns with the calendar grid
+# =============================================================================
+
+# Horizontal boundaries (percentage of image width, 0.0 to 1.0)
+grid_left_pct: 0.02     # Left edge of grid (2% from left)
+grid_right_pct: 0.98    # Right edge of grid (98% from left)
+
+# Vertical boundaries (percentage of image height, 0.0 to 1.0)
+# Set grid_top_pct to null for auto-detection, or a value to hardcode
+grid_top_pct: 0.28      # Top of grid (null = auto-detect from day names)
+grid_bottom_pct: 0.775   # Bottom of grid (85% from top)
+
+# Fallback for grid_top when auto-detection fails
+grid_top_fallback_pct: 0.38   # 38% from top

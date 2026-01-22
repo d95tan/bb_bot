@@ -39,6 +39,16 @@ class Settings(BaseSettings):
         description="Timezone for calendar events"
     )
     
+    # Feature flags
+    enable_calendar_upload: bool = Field(
+        default=True,
+        description="Enable/disable actual calendar uploads (for testing OCR)"
+    )
+    debug_save_cells: bool = Field(
+        default=False,
+        description="Save cropped cell images to debug/ folder for debugging OCR"
+    )
+    
     @property
     def is_calendar_configured(self) -> bool:
         """Check if Google Calendar is fully configured."""
@@ -158,9 +168,56 @@ class ShiftConfig:
         return not shift_info.get("same_day", True)
 
 
+class GridConfig:
+    """Grid boundary configuration for screenshot processing."""
+    
+    def __init__(self, config_path: Path | str = "config/grid.yaml") -> None:
+        self.config_path = Path(config_path)
+        self._config: dict = {}
+        self.load()
+    
+    def load(self) -> None:
+        """Load grid configuration from YAML file."""
+        if not self.config_path.exists():
+            raise FileNotFoundError(f"Grid config not found: {self.config_path}")
+        
+        with open(self.config_path, "r", encoding="utf-8") as f:
+            self._config = yaml.safe_load(f)
+    
+    def reload(self) -> None:
+        """Reload configuration from file."""
+        self.load()
+    
+    @property
+    def grid_left_pct(self) -> float:
+        """Left edge of grid as percentage of image width."""
+        return self._config.get("grid_left_pct", 0.02)
+    
+    @property
+    def grid_right_pct(self) -> float:
+        """Right edge of grid as percentage of image width."""
+        return self._config.get("grid_right_pct", 0.98)
+    
+    @property
+    def grid_top_pct(self) -> Optional[float]:
+        """Top edge of grid as percentage of image height (None for auto-detect)."""
+        return self._config.get("grid_top_pct")
+    
+    @property
+    def grid_bottom_pct(self) -> float:
+        """Bottom edge of grid as percentage of image height."""
+        return self._config.get("grid_bottom_pct", 0.85)
+    
+    @property
+    def grid_top_fallback_pct(self) -> float:
+        """Fallback top edge when auto-detection fails."""
+        return self._config.get("grid_top_fallback_pct", 0.38)
+
+
 # Global instances
 _settings: Settings | None = None
 _shift_config: ShiftConfig | None = None
+_grid_config: GridConfig | None = None
 
 
 def get_settings() -> Settings:
@@ -177,3 +234,11 @@ def get_shift_config() -> ShiftConfig:
     if _shift_config is None:
         _shift_config = ShiftConfig()
     return _shift_config
+
+
+def get_grid_config() -> GridConfig:
+    """Get or create grid config instance."""
+    global _grid_config
+    if _grid_config is None:
+        _grid_config = GridConfig()
+    return _grid_config

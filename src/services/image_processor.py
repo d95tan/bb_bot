@@ -15,7 +15,9 @@ from PIL import Image
 import pytesseract
 from pytesseract import Output
 
-from src.config import get_shift_config
+from pathlib import Path
+
+from src.config import get_shift_config, get_settings, get_grid_config
 
 
 logger = logging.getLogger(__name__)
@@ -123,18 +125,38 @@ def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dic
     """
     width, height = image.size
     shift_config = get_shift_config()
+    settings = get_settings()
+    grid_config = get_grid_config()
     
-    # Dynamically find grid top based on day names
-    grid_top = find_grid_top(image)
-    if not grid_top:
-        # Fallback if detection fails
-        logger.warning("Could not detect grid top dynamically, using fallback")
-        grid_top = int(height * 0.38)
-        
-    # Define grid boundaries (approximate based on observed screenshots)
-    grid_bottom = int(height * 0.85)   # Above footer navigation
-    grid_left = int(width * 0.02)
-    grid_right = int(width * 0.98)
+    # Log image dimensions for calibration
+    logger.info(f"Image dimensions: {width}x{height}")
+    
+    # Debug: setup output folder for cell images
+    debug_dir = None
+    if settings.debug_save_cells:
+        debug_dir = Path("debug") / f"{year}-{month:02d}"
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Debug mode: saving cell images to {debug_dir}")
+    
+    # Calculate grid boundaries using config
+    grid_left = int(width * grid_config.grid_left_pct)
+    grid_right = int(width * grid_config.grid_right_pct)
+    grid_bottom = int(height * grid_config.grid_bottom_pct)
+    grid_top = int(height * grid_config.grid_top_pct)
+    
+    # Log all grid boundaries for calibration
+    logger.info(
+        f"Grid boundaries (pixels): left={grid_left}, right={grid_right}, "
+        f"top={grid_top}, bottom={grid_bottom}"
+    )
+    logger.info(
+        f"Grid boundaries (percent): left={grid_config.grid_left_pct}, right={grid_config.grid_right_pct}, "
+        f"top={grid_top/height:.4f}, bottom={grid_config.grid_bottom_pct}"
+    )
+    
+    # Debug: save grid overlay image
+    if debug_dir:
+        _save_grid_debug_image(image, grid_top, grid_bottom, grid_left, grid_right, debug_dir)
     
     # Calculate cell dimensions
     grid_width = grid_right - grid_left
@@ -174,8 +196,13 @@ def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dic
             # Extract shift code and color from cell
             shift_code, dominant_color = extract_cell_data(cell_image)
             
+            # Debug: save each cell image
+            if debug_dir:
+                cell_filename = f"day_{day:02d}_r{row}_c{col}_{shift_code or 'empty'}.png"
+                cell_image.save(debug_dir / cell_filename)
+            
             if shift_code:
-                # Look up shift info
+                # Look up shift info (with color fallback if code not found)
                 shift_info = shift_config.get_shift(shift_code, dominant_color)
                 
                 if shift_info:
@@ -196,8 +223,61 @@ def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dic
                             "description": f"Unknown shift: {shift_code}",
                         },
                     })
+            elif dominant_color:
+                # OCR failed - try color-only fallback
+                shift_info = shift_config.get_shift_by_color(dominant_color)
+                if shift_info:
+                    color_name = shift_info.get("name", "?")
+                    logger.info(f"Color fallback: detected {color_name} by color RGB{dominant_color} on {year}-{month:02d}-{day:02d}")
+                    schedule.append({
+                        "date": date(year, month, day),
+                        "shift": color_name,
+                        "shift_info": shift_info,
+                    })
+                else:
+                    # Log unrecognized color for debugging
+                    logger.debug(f"No color match for RGB{dominant_color} on {year}-{month:02d}-{day:02d}")
     
     return schedule
+
+
+def _save_grid_debug_image(
+    image: Image.Image,
+    grid_top: int,
+    grid_bottom: int,
+    grid_left: int,
+    grid_right: int,
+    debug_dir: Path
+) -> None:
+    """Save a debug image showing the detected grid boundaries."""
+    from PIL import ImageDraw
+    
+    debug_image = image.copy()
+    draw = ImageDraw.Draw(debug_image)
+    
+    # Draw grid boundary rectangle
+    draw.rectangle(
+        [(grid_left, grid_top), (grid_right, grid_bottom)],
+        outline="red",
+        width=3
+    )
+    
+    # Draw column lines
+    grid_width = grid_right - grid_left
+    col_width = grid_width // 7
+    for i in range(1, 7):
+        x = grid_left + i * col_width
+        draw.line([(x, grid_top), (x, grid_bottom)], fill="blue", width=2)
+    
+    # Draw row lines
+    grid_height = grid_bottom - grid_top
+    row_height = grid_height // 6
+    for i in range(1, 6):
+        y = grid_top + i * row_height
+        draw.line([(grid_left, y), (grid_right, y)], fill="blue", width=2)
+    
+    debug_image.save(debug_dir / "_grid_overlay.png")
+    logger.info(f"Saved grid overlay to {debug_dir / '_grid_overlay.png'}")
 
 
 def extract_cell_data(cell_image: Image.Image) -> tuple[Optional[str], Optional[tuple[int, int, int]]]:
@@ -215,8 +295,15 @@ def extract_cell_data(cell_image: Image.Image) -> tuple[Optional[str], Optional[
     custom_config = r'--oem 3 --psm 6'
     cell_text = pytesseract.image_to_string(cell_image, config=custom_config)
     
+    # Debug: log raw OCR text
+    logger.debug(f"Raw OCR text: {repr(cell_text)}")
+    
     # Parse shift code from OCR text
     shift_code = parse_shift_code(cell_text)
+    
+    if not shift_code and cell_text.strip():
+        # Log when we have text but couldn't parse a shift code
+        logger.warning(f"Could not parse shift code from OCR text: {repr(cell_text.strip())}")
     
     return shift_code, dominant_color
 
@@ -273,19 +360,63 @@ def normalize_shift_code(code: str) -> str:
     """
     Normalize shift code to handle common OCR errors.
     
-    Common issues:
-    - O/0 confusion (D0G8 vs DOG8)
-    - I/1 confusion
+    Common OCR confusions:
+    - O ↔ 0 (letter O vs zero)
+    - S ↔ 8 (similar shape)
+    - G ↔ 6 (similar shape)
+    - I ↔ 1 (similar shape)
+    - B ↔ 8 (similar shape)
     """
+    shift_config = get_shift_config()
+    known_codes = {c.upper() for c in shift_config.get_all_codes()}
+    
+    # First, apply basic normalization
+    normalized = code.upper()
+    
     # For codes starting with D followed by O or 0, normalize to D0
-    if code.startswith("DO") and len(code) > 2:
-        code = "D0" + code[2:]
+    if normalized.startswith("DO") and len(normalized) > 2:
+        normalized = "D0" + normalized[2:]
     
     # For codes starting with E followed by O or 0, normalize to E0
-    if code.startswith("EO") and len(code) > 2:
-        code = "E0" + code[2:]
+    if normalized.startswith("EO") and len(normalized) > 2:
+        normalized = "E0" + normalized[2:]
     
-    return code
+    # If already a known code, return it
+    if normalized in known_codes:
+        return normalized
+    
+    # Try OCR character substitutions to find a match
+    # Common confusions: S↔8, G↔6, O↔0, I↔1, B↔8
+    ocr_substitutions = [
+        ('S', '8'),
+        ('8', 'S'),
+        ('G', '6'),
+        ('6', 'G'),
+        ('O', '0'),
+        ('0', 'O'),
+        ('I', '1'),
+        ('1', 'I'),
+        ('B', '8'),
+    ]
+    
+    # Try single character substitutions
+    for old_char, new_char in ocr_substitutions:
+        if old_char in normalized:
+            candidate = normalized.replace(old_char, new_char)
+            if candidate in known_codes:
+                logger.debug(f"OCR correction: {code} -> {candidate}")
+                return candidate
+    
+    # Try substitutions at each position individually
+    for i, char in enumerate(normalized):
+        for old_char, new_char in ocr_substitutions:
+            if char == old_char:
+                candidate = normalized[:i] + new_char + normalized[i+1:]
+                if candidate in known_codes:
+                    logger.debug(f"OCR correction: {code} -> {candidate}")
+                    return candidate
+    
+    return normalized
 
 
 def get_dominant_color(image: Image.Image) -> tuple[int, int, int]:
