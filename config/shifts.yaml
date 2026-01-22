@@ -197,12 +197,12 @@ color_fallbacks:
       same_day: true
       description: "Training (detected by color)"
 
-  olive:
-    # Olive: BOILU
+  BOILU:
+    # Olive: Birthday Off-in-lieu
     rgb_range:
       r: [130, 160]
       g: [130, 160]
       b: [45, 75]
     shift:
       all_day: true
-      description: "BOILU (detected by color)"
+      description: "Birthday Off-in-lieu (detected by OLIVE color)"
