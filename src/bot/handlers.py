@@ -141,39 +141,45 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         # Create calendar events (or dry-run if uploads disabled)
-        calendar_service = CalendarService() if settings.enable_calendar_upload else None
         dry_run = not settings.enable_calendar_upload
+        calendar_service = None if dry_run else CalendarService()
 
         if dry_run:
             logger.warning("Dry-run mode: calendar uploads disabled")
-            
+
         created_events = []
         for entry in schedule_data:
             shift_date = entry["date"]
             shift_code = entry["shift"]
             shift_info = entry.get("shift_info")
-
-            if shift_info:
-                if dry_run:
-                    # Dry-run mode: just log what would be created
-                    created_events.append(
-                        f"• {shift_date.strftime('%a %d %b')}: {shift_code} (🧪 dry-run)")
-                    
+            
+            # Build base message
+            base_msg = f"• {shift_date.strftime('%a %d %b')}: {shift_code}"
+            
+            if not shift_info:
+                created_events.append(f"{base_msg} (unknown)")
+                continue
+            
+            if dry_run:
+                created_events.append(f"{base_msg} (🧪 dry-run)")
+                continue
+            
+            # Actually create the calendar event
+            try:
+                _, status = await calendar_service.create_shift_event(
+                    shift_date=shift_date,
+                    shift_info=shift_info,
+                    skip_existing=True,
+                )
+                if status == "skipped":
+                    created_events.append(f"{base_msg} (already exists)")
+                elif status == "updated":
+                    created_events.append(f"{base_msg} (🔄 updated)")
                 else:
-                    try:
-                        await calendar_service.create_shift_event(
-                            shift_date=shift_date,
-                            shift_info=shift_info
-                        )
-                        created_events.append(
-                            f"• {shift_date.strftime('%a %d %b')}: {shift_code}")
-                    except Exception as e:
-                        logger.error(f"Failed to create calendar event: {e}")
-                        created_events.append(
-                            f"• {shift_date.strftime('%a %d %b')}: {shift_code} (⚠️ failed)")
-            else:
-                created_events.append(
-                    f"• {shift_date.strftime('%a %d %b')}: {shift_code} (unknown)")
+                    created_events.append(base_msg)
+            except Exception as e:
+                logger.error(f"Failed to create calendar event: {e}")
+                created_events.append(f"{base_msg} (⚠️ failed)")
 
         logger.info("Created events:\n" + "\n".join(created_events) if created_events else "No shifts found")
 
