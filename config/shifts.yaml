@@ -71,11 +71,11 @@ code_mappings:
   
   HL:
     all_day: true
-    description: "Holiday Leave"
+    description: "Hospitalisation Leave"
   
   FCL:
     all_day: true
-    description: "Leave"
+    description: "Family Care Leave"
 
   # Training (Green/Teal colored)
   TD:
@@ -168,9 +168,9 @@ color_fallbacks:
   gray:
     # Gray: Day off / Rest day
     rgb_range:
-      r: [180, 220]
-      g: [180, 220]
-      b: [180, 220]
+      r: [145, 175]
+      g: [145, 175]
+      b: [145, 175]
     shift:
       all_day: true
       description: "Day Off (detected by color)"
@@ -185,14 +185,24 @@ color_fallbacks:
       all_day: true
       description: "Medical/Course (detected by color)"
 
-  teal:
-    # Teal/Dark blue: Training
+  dark_green:
+    # Dark Green: Training
     rgb_range:
-      r: [80, 140]
-      g: [160, 220]
-      b: [180, 240]
+      r: [145, 175]
+      g: [185, 215]
+      b: [35, 65]
     shift:
       start: "08:00"
       end: "18:00"
       same_day: true
       description: "Training (detected by color)"
+
+  olive:
+    # Olive: BOILU
+    rgb_range:
+      r: [130, 160]
+      g: [130, 160]
+      b: [45, 75]
+    shift:
+      all_day: true
+      description: "BOILU (detected by color)"
