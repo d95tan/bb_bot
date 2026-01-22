@@ -24,11 +24,13 @@ dev = [
     "ruff>=0.1.9",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
+    "watchfiles>=0.21.0",
 ]
 
 [project.scripts]
 telebot = "src.main:main"
 telebot-auth = "src.auth_setup:main"
+telebot-dev = "src.dev:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
