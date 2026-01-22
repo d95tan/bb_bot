@@ -10,20 +10,22 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    
+
     # Telegram
-    telegram_bot_token: str = Field(..., description="Telegram bot token from BotFather")
+    telegram_bot_token: str = Field(...,
+                                    description="Telegram bot token from BotFather")
     telegram_user_id: int = Field(..., description="Your Telegram user ID")
-    
+
     # Google Calendar
     google_client_id: str = Field(..., description="Google OAuth client ID")
-    google_client_secret: str = Field(..., description="Google OAuth client secret")
+    google_client_secret: str = Field(...,
+                                      description="Google OAuth client secret")
     google_refresh_token: Optional[str] = Field(
         default=None,
         description="Google OAuth refresh token (obtained after first auth)"
@@ -32,13 +34,13 @@ class Settings(BaseSettings):
         default="primary",
         description="Google Calendar ID to use"
     )
-    
+
     # Timezone
     timezone: str = Field(
         default="Australia/Sydney",
         description="Timezone for calendar events"
     )
-    
+
     # Feature flags
     enable_calendar_upload: bool = Field(
         default=True,
@@ -48,7 +50,7 @@ class Settings(BaseSettings):
         default=False,
         description="Save cropped cell images to debug/ folder for debugging OCR"
     )
-    
+
     @property
     def is_calendar_configured(self) -> bool:
         """Check if Google Calendar is fully configured."""
@@ -57,38 +59,39 @@ class Settings(BaseSettings):
 
 class ShiftConfig:
     """Shift configuration with two-tier lookup: code mappings + color fallbacks."""
-    
+
     def __init__(self, config_path: Path | str = "config/shifts.yaml") -> None:
         self.config_path = Path(config_path)
         self._code_mappings: dict = {}
         self._color_fallbacks: dict = {}
         self.load()
-    
+
     def load(self) -> None:
         """Load shift configuration from YAML file."""
         if not self.config_path.exists():
-            raise FileNotFoundError(f"Shift config not found: {self.config_path}")
-        
+            raise FileNotFoundError(
+                f"Shift config not found: {self.config_path}")
+
         with open(self.config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-        
+
         self._code_mappings = data.get("code_mappings", {})
         self._color_fallbacks = data.get("color_fallbacks", {})
-    
+
     def reload(self) -> None:
         """Reload configuration from file."""
         self.load()
-    
+
     @property
     def code_mappings(self) -> dict:
         """Get all code-to-shift mappings."""
         return self._code_mappings
-    
+
     @property
     def color_fallbacks(self) -> dict:
         """Get all color-based fallback mappings."""
         return self._color_fallbacks
-    
+
     def get_shift_by_code(self, code: str) -> dict | None:
         """
         Get shift info by code (primary lookup).
@@ -99,44 +102,46 @@ class ShiftConfig:
             if mapping_code.upper() == code_upper:
                 return {"name": mapping_code, **config}
         return None
-    
+
     def get_shift_by_color(self, rgb: tuple[int, int, int]) -> dict | None:
         """
         Get shift info by color (fallback lookup).
-        
+
         Args:
             rgb: Tuple of (red, green, blue) values (0-255)
-            
+
         Returns:
             Shift info dict or None if no color match
         """
         r, g, b = rgb
-        
+
         for color_name, color_config in self._color_fallbacks.items():
             rgb_range = color_config.get("rgb_range", {})
             r_range = rgb_range.get("r", [0, 255])
             g_range = rgb_range.get("g", [0, 255])
             b_range = rgb_range.get("b", [0, 255])
-            
-            if (r_range[0] <= r <= r_range[1] and
+
+            if (
+                r_range[0] <= r <= r_range[1] and
                 g_range[0] <= g <= g_range[1] and
-                b_range[0] <= b <= b_range[1]):
+                b_range[0] <= b <= b_range[1]
+            ):
                 shift = color_config.get("shift", {})
                 return {"name": color_name, **shift}
-        
+
         return None
-    
+
     def get_shift(self, code: str, fallback_rgb: tuple[int, int, int] | None = None) -> dict | None:
         """
         Get shift info with two-tier lookup.
-        
+
         1. First tries code mapping
         2. Falls back to color detection if code not found
-        
+
         Args:
             code: Shift code (e.g., "E0M8", "N2111")
             fallback_rgb: Optional RGB color tuple for fallback lookup
-            
+
         Returns:
             Shift info dict or None
         """
@@ -144,7 +149,7 @@ class ShiftConfig:
         shift = self.get_shift_by_code(code)
         if shift:
             return shift
-        
+
         # Secondary: try color fallback
         if fallback_rgb:
             shift = self.get_shift_by_color(fallback_rgb)
@@ -152,17 +157,17 @@ class ShiftConfig:
                 # Add the original code to the shift info
                 shift["original_code"] = code
                 return shift
-        
+
         return None
-    
+
     def get_all_codes(self) -> list[str]:
         """Get list of all known shift codes."""
         return list(self._code_mappings.keys())
-    
+
     def is_all_day_shift(self, shift_info: dict) -> bool:
         """Check if a shift is an all-day event."""
         return shift_info.get("all_day", False)
-    
+
     def is_overnight_shift(self, shift_info: dict) -> bool:
         """Check if a shift spans overnight."""
         return not shift_info.get("same_day", True)
@@ -170,44 +175,45 @@ class ShiftConfig:
 
 class GridConfig:
     """Grid boundary configuration for screenshot processing."""
-    
+
     def __init__(self, config_path: Path | str = "config/grid.yaml") -> None:
         self.config_path = Path(config_path)
         self._config: dict = {}
         self.load()
-    
+
     def load(self) -> None:
         """Load grid configuration from YAML file."""
         if not self.config_path.exists():
-            raise FileNotFoundError(f"Grid config not found: {self.config_path}")
-        
+            raise FileNotFoundError(
+                f"Grid config not found: {self.config_path}")
+
         with open(self.config_path, "r", encoding="utf-8") as f:
             self._config = yaml.safe_load(f)
-    
+
     def reload(self) -> None:
         """Reload configuration from file."""
         self.load()
-    
+
     @property
     def grid_left_pct(self) -> float:
         """Left edge of grid as percentage of image width."""
         return self._config.get("grid_left_pct", 0.02)
-    
+
     @property
     def grid_right_pct(self) -> float:
         """Right edge of grid as percentage of image width."""
         return self._config.get("grid_right_pct", 0.98)
-    
+
     @property
     def grid_top_pct(self) -> Optional[float]:
         """Top edge of grid as percentage of image height (None for auto-detect)."""
         return self._config.get("grid_top_pct")
-    
+
     @property
     def grid_bottom_pct(self) -> float:
         """Bottom edge of grid as percentage of image height."""
         return self._config.get("grid_bottom_pct", 0.85)
-    
+
     @property
     def grid_top_fallback_pct(self) -> float:
         """Fallback top edge when auto-detection fails."""

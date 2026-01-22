@@ -95,7 +95,7 @@ def main() -> None:
     
     print(f"\n{'='*60}")
     print("Done!")
-    print(f"Check debug/ folder for cell images (if DEBUG_SAVE_CELLS=true)")
+    print("Check debug/ folder for cell images (if DEBUG_SAVE_CELLS=true)")
 
 
 if __name__ == "__main__":
