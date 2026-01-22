@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files (will be passed via docker-compose)
+.env
+
+# Debug output
+debug/
+
+# Test files
+test_*.py
+tests/
+sample_images/
+
+# Documentation
+*.md
