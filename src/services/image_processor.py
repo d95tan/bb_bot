@@ -85,8 +85,9 @@ def extract_month_year(image: Image.Image) -> tuple[Optional[int], Optional[int]
     The header contains text like "Aug 2025" or "Jul 2025" in a blue pill.
     """
     # Crop the header area (top portion of image)
+    grid_config = get_grid_config()
     width, height = image.size
-    header_region = image.crop((0, 0, width, int(height * 0.35)))
+    header_region = image.crop((0, 0, width, int(height * grid_config.header_height_pct)))
 
     # Run OCR on header
     # Use psm 6 for uniform block of text

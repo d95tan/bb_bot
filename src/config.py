@@ -213,6 +213,11 @@ class GridConfig:
         """Fallback top edge when auto-detection fails."""
         return self._config.get("grid_top_fallback_pct", 0.38)
 
+    @property
+    def header_height_pct(self) -> float:
+        """Height of header region as percentage of image height."""
+        return self._config.get("header_height_pct", 0.35)
+
 
 # Global instances
 _settings: Settings | None = None
