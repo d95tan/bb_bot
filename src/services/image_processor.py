@@ -487,12 +487,29 @@ def normalize_shift_code(code: str) -> str:
         ('I', '1'),
         ('1', 'I'),
         ('B', '8'),
+        ('B', 'D'),  # B and D look similar
+        ('D', 'B'),
     ]
+
+    def apply_basic_normalization(s: str) -> str:
+        """Apply DO→D0, EO→E0, and B0→D0 normalization."""
+        if s.startswith("DO") and len(s) > 2:
+            s = "D0" + s[2:]
+        if s.startswith("EO") and len(s) > 2:
+            s = "E0" + s[2:]
+        # Handle B misread as D (both BO and B0)
+        if s.startswith("BO") and len(s) > 2:
+            s = "D0" + s[2:]
+        if s.startswith("B0") and len(s) > 2:
+            s = "D0" + s[2:]
+        return s
 
     # Try single character substitutions
     for old_char, new_char in ocr_substitutions:
         if old_char in normalized:
             candidate = normalized.replace(old_char, new_char)
+            # Apply basic normalization after substitution
+            candidate = apply_basic_normalization(candidate)
             if candidate in known_codes:
                 logger.debug(f"OCR correction: {code} -> {candidate}")
                 return candidate
@@ -502,6 +519,8 @@ def normalize_shift_code(code: str) -> str:
         for old_char, new_char in ocr_substitutions:
             if char == old_char:
                 candidate = normalized[:i] + new_char + normalized[i + 1:]
+                # Apply basic normalization after substitution
+                candidate = apply_basic_normalization(candidate)
                 if candidate in known_codes:
                     logger.debug(f"OCR correction: {code} -> {candidate}")
                     return candidate
