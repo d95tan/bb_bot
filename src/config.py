@@ -20,7 +20,15 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = Field(...,
                                     description="Telegram bot token from BotFather")
-    telegram_user_id: int = Field(..., description="Your Telegram user ID")
+    telegram_user_ids: str = Field(
+        ...,
+        description="Comma-separated list of authorized Telegram user IDs"
+    )
+
+    @property
+    def authorized_user_ids(self) -> list[int]:
+        """Parse telegram_user_ids into a list of integers."""
+        return [int(uid.strip()) for uid in self.telegram_user_ids.split(",") if uid.strip()]
 
     # Google Calendar
     google_client_id: str = Field(..., description="Google OAuth client ID")
@@ -49,6 +57,14 @@ class Settings(BaseSettings):
     debug_save_cells: bool = Field(
         default=False,
         description="Save cropped cell images to debug/ folder for debugging OCR"
+    )
+    color_only_mode: bool = Field(
+        default=False,
+        description="Use only color detection for shifts, skip OCR entirely"
+    )
+    wipe_calendar_before_upload: bool = Field(
+        default=False,
+        description="Delete all events in the month before uploading new ones (for development)"
     )
 
     @property
