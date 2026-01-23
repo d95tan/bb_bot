@@ -542,11 +542,102 @@ def parse_shift_code(text: str) -> Optional[str]:
     return None
 
 
+# OCR character substitutions for common confusions
+# Order matters for tiebreaking when multiple candidates match
+OCR_SUBSTITUTIONS = [
+    ('S', '8'),
+    ('S', '9'),
+    ('8', 'S'),
+    ('9', 'S'),
+    ('8', '9'),
+    ('9', '8'),
+    ('G', '6'),
+    ('6', 'G'),
+    ('O', '0'),
+    ('0', 'O'),
+    ('I', '1'),
+    ('1', 'I'),
+    ('B', '8'),
+    ('B', 'D'),
+    ('D', 'B'),
+]
+
+
+def _apply_prefix_normalization(code: str) -> str:
+    """
+    Normalize common prefix confusions.
+    
+    - DO → D0 (letter O to zero)
+    - EO → E0 (letter O to zero)
+    - BO → D0 (B misread as D)
+    - B0 → D0 (B misread as D)
+    """
+    if len(code) <= 2:
+        return code
+    
+    prefix = code[:2]
+    rest = code[2:]
+    
+    if prefix in ("DO", "EO"):
+        return prefix[0] + "0" + rest
+    if prefix in ("BO", "B0"):
+        return "D0" + rest
+    
+    return code
+
+
+def _find_ocr_candidates(code: str, known_codes: set[str]) -> set[str]:
+    """
+    Find all valid shift codes that could match the OCR'd text.
+    
+    Tries various character substitutions based on common OCR confusions.
+    """
+    candidates = set()
+    
+    # Try replacing all occurrences of a character
+    for old_char, new_char in OCR_SUBSTITUTIONS:
+        if old_char in code:
+            candidate = code.replace(old_char, new_char)
+            candidate = _apply_prefix_normalization(candidate)
+            if candidate in known_codes:
+                candidates.add(candidate)
+    
+    # Try substitutions at each position individually
+    for i, char in enumerate(code):
+        for old_char, new_char in OCR_SUBSTITUTIONS:
+            if char == old_char:
+                candidate = code[:i] + new_char + code[i + 1:]
+                candidate = _apply_prefix_normalization(candidate)
+                if candidate in known_codes:
+                    candidates.add(candidate)
+    
+    return candidates
+
+
+def _select_best_candidate(code: str, candidates: set[str]) -> str:
+    """
+    Select the best candidate from multiple OCR matches.
+    
+    Returns first alphabetically for deterministic results.
+    """
+    if len(candidates) == 1:
+        result = candidates.pop()
+        logger.debug(f"OCR correction: {code} -> {result}")
+        return result
+    
+    # Multiple candidates - pick first alphabetically
+    result = sorted(candidates)[0]
+    logger.warning(
+        f"Ambiguous OCR: '{code}' could be {sorted(candidates)}, picking '{result}'"
+    )
+    return result
+
+
 def normalize_shift_code(code: str) -> str:
     """
     Normalize shift code to handle common OCR errors.
 
-    Common OCR confusions:
+    Common OCR confusions handled:
     - O ↔ 0 (letter O vs zero)
     - S ↔ 8 ↔ 9 (similar shapes)
     - G ↔ 6 (similar shape)
@@ -556,90 +647,21 @@ def normalize_shift_code(code: str) -> str:
     shift_config = get_shift_config()
     known_codes = {c.upper() for c in shift_config.get_all_codes()}
 
-    # First, apply basic normalization
-    normalized = code.upper()
-
-    # For codes starting with D followed by O or 0, normalize to D0
-    if normalized.startswith("DO") and len(normalized) > 2:
-        normalized = "D0" + normalized[2:]
-
-    # For codes starting with E followed by O or 0, normalize to E0
-    if normalized.startswith("EO") and len(normalized) > 2:
-        normalized = "E0" + normalized[2:]
+    # Apply basic normalization
+    normalized = _apply_prefix_normalization(code.upper())
 
     # If already a known code, return it
     if normalized in known_codes:
         return normalized
 
-    # OCR character substitutions - order matters for tiebreaking
-    # Common confusions: S↔8↔9, G↔6, O↔0, I↔1, B↔8↔D
-    ocr_substitutions = [
-        ('S', '8'),
-        ('S', '9'),  # S can also look like 9
-        ('8', 'S'),
-        ('9', 'S'),  # 9 can also look like S
-        ('8', '9'),  # 8 and 9 can be confused
-        ('9', '8'),
-        ('G', '6'),
-        ('6', 'G'),
-        ('O', '0'),
-        ('0', 'O'),
-        ('I', '1'),
-        ('1', 'I'),
-        ('B', '8'),
-        ('B', 'D'),  # B and D look similar
-        ('D', 'B'),
-    ]
+    # Find all possible candidates via OCR substitutions
+    candidates = _find_ocr_candidates(normalized, known_codes)
 
-    def apply_basic_normalization(s: str) -> str:
-        """Apply DO→D0, EO→E0, and B0→D0 normalization."""
-        if s.startswith("DO") and len(s) > 2:
-            s = "D0" + s[2:]
-        if s.startswith("EO") and len(s) > 2:
-            s = "E0" + s[2:]
-        # Handle B misread as D (both BO and B0)
-        if s.startswith("BO") and len(s) > 2:
-            s = "D0" + s[2:]
-        if s.startswith("B0") and len(s) > 2:
-            s = "D0" + s[2:]
-        return s
-
-    # Collect all possible candidates
-    candidates = set()
-
-    # Try single character substitutions
-    for old_char, new_char in ocr_substitutions:
-        if old_char in normalized:
-            candidate = normalized.replace(old_char, new_char)
-            candidate = apply_basic_normalization(candidate)
-            if candidate in known_codes:
-                candidates.add(candidate)
-
-    # Try substitutions at each position individually
-    for i, char in enumerate(normalized):
-        for old_char, new_char in ocr_substitutions:
-            if char == old_char:
-                candidate = normalized[:i] + new_char + normalized[i + 1:]
-                candidate = apply_basic_normalization(candidate)
-                if candidate in known_codes:
-                    candidates.add(candidate)
-
-    # If no candidates found, return the normalized code
+    # No candidates found - return normalized code as-is
     if not candidates:
         return normalized
 
-    # If only one candidate, return it
-    if len(candidates) == 1:
-        result = candidates.pop()
-        logger.debug(f"OCR correction: {code} -> {result}")
-        return result
-
-    # Multiple candidates - return first alphabetically (deterministic)
-    result = sorted(candidates)[0]
-    logger.warning(
-        f"Ambiguous OCR: '{code}' could be {sorted(candidates)}, picking '{result}'"
-    )
-    return result
+    return _select_best_candidate(code, candidates)
 
 
 def get_dominant_color(image: Image.Image) -> tuple[int, int, int]:

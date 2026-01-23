@@ -4,7 +4,7 @@ import logging
 from datetime import date, timedelta
 from io import BytesIO
 
-from telegram import Update
+from telegram import Update, Message
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -73,7 +73,7 @@ def _build_calendar_status(dry_run: bool, stats: dict) -> str:
     return "✅ All shifts added to Google Calendar!"
 
 
-async def _process_schedule_data(schedule_data: list, settings: Settings, processing_msg) -> None:
+async def _process_schedule_data(schedule_data: list, settings: Settings, processing_msg: Message) -> None:
     """Process schedule data and create calendar events."""
     # Create calendar events (or dry-run if uploads disabled)
     dry_run = not settings.enable_calendar_upload
