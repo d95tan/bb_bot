@@ -1,5 +1,6 @@
 """Google Calendar integration service."""
 
+import asyncio
 import logging
 from datetime import date, datetime, timedelta
 
@@ -57,8 +58,6 @@ class CalendarService:
         self,
         shift_date: date,
         shift_info: dict,
-        skip_existing: bool = True,
-        overwrite_existing: bool = False,
     ) -> tuple[str, str]:
         """
         Create a calendar event for a shift.
@@ -66,50 +65,30 @@ class CalendarService:
         Args:
             shift_date: Date of the shift
             shift_info: Shift configuration including start, end, same_day, all_day
-            skip_existing: If True, skip creating if event with same name exists
-            overwrite_existing: If True, delete existing event before creating new one
 
         Returns:
-            Tuple of (event_id, status) where status is "created", "skipped", or "updated"
+            Tuple of (event_id, status) where status is "created"
         """
         shift_name = shift_info.get("name", "Shift")
-
-        # Check for existing event with same name on same date
-        existing_event = await self._find_existing_event(shift_date, shift_name)
-
-        if existing_event:
-            if skip_existing and not overwrite_existing:
-                logger.info(f"Skipping existing event: {shift_name} on {shift_date}")
-                return existing_event.get("id"), "skipped"
-
-            if overwrite_existing:
-                await self.delete_event(existing_event.get("id"))
-                logger.info(f"Deleted existing event for overwrite: {shift_name} on {shift_date}")
 
         # Build event based on shift type
         event = self._build_event_body(shift_date, shift_info, self.settings.timezone)
 
         try:
-            created_event = self.service.events().insert(
-                calendarId=self.calendar_id,
-                body=event,
-            ).execute()
+            # Run blocking Google API call in thread pool
+            created_event = await asyncio.to_thread(
+                self.service.events().insert(
+                    calendarId=self.calendar_id,
+                    body=event,
+                ).execute
+            )
 
-            status = "updated" if existing_event and overwrite_existing else "created"
-            logger.info(f"{status.capitalize()} calendar event: {created_event.get('id')}")
-            return created_event.get("id"), status
+            logger.info(f"Created calendar event: {shift_name} on {shift_date}")
+            return created_event.get("id"), "created"
 
         except HttpError as e:
             logger.error(f"Failed to create calendar event: {e}")
             raise
-
-    async def _find_existing_event(self, target_date: date, event_name: str) -> dict | None:
-        """Find an existing event with the same name on a specific date."""
-        events = await self.get_shifts_for_date(target_date)
-        for event in events:
-            if event.get("summary") == event_name:
-                return event
-        return None
 
     def _build_event_body(self, shift_date: date, shift_info: dict, timezone: str) -> dict:
         """Build the event body for Google Calendar API."""
@@ -175,13 +154,16 @@ class CalendarService:
         time_max = datetime.combine(target_date + timedelta(days=1), datetime.min.time()).isoformat() + "Z"
         
         try:
-            events_result = self.service.events().list(
-                calendarId=self.calendar_id,
-                timeMin=time_min,
-                timeMax=time_max,
-                singleEvents=True,
-                orderBy="startTime",
-            ).execute()
+            # Run blocking Google API call in thread pool
+            events_result = await asyncio.to_thread(
+                self.service.events().list(
+                    calendarId=self.calendar_id,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                    singleEvents=True,
+                    orderBy="startTime",
+                ).execute
+            )
             
             return events_result.get("items", [])
             
@@ -195,13 +177,16 @@ class CalendarService:
         time_max = datetime.combine(end_date + timedelta(days=1), datetime.min.time()).isoformat() + "Z"
         
         try:
-            events_result = self.service.events().list(
-                calendarId=self.calendar_id,
-                timeMin=time_min,
-                timeMax=time_max,
-                singleEvents=True,
-                orderBy="startTime",
-            ).execute()
+            # Run blocking Google API call in thread pool
+            events_result = await asyncio.to_thread(
+                self.service.events().list(
+                    calendarId=self.calendar_id,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                    singleEvents=True,
+                    orderBy="startTime",
+                ).execute
+            )
             
             return events_result.get("items", [])
             
@@ -209,15 +194,67 @@ class CalendarService:
             logger.error(f"Failed to get calendar events: {e}")
             raise
     
+    async def clear_date_range(
+        self,
+        start_date: date,
+        end_date: date,
+        preserve_overnight_from_previous: bool = True,
+    ) -> int:
+        """
+        Delete all events in a date range before uploading new shifts.
+        
+        Args:
+            start_date: First date to clear
+            end_date: Last date to clear
+            preserve_overnight_from_previous: If True, don't delete events that
+                started on the day before start_date (e.g., night shifts)
+                
+        Returns:
+            Number of events deleted
+        """
+        logger.info(f"Clearing calendar events from {start_date} to {end_date}")
+        
+        events = await self.get_shifts_for_range(start_date, end_date)
+        
+        deleted_count = 0
+        for event in events:
+            event_id = event.get("id")
+            if not event_id:
+                continue
+                
+            # Check if we should preserve overnight events from previous day
+            if preserve_overnight_from_previous:
+                event_start = event.get("start", {})
+                # Get the event's start date (handle both all-day and timed events)
+                start_str = event_start.get("dateTime") or event_start.get("date")
+                if start_str:
+                    # Parse the date portion
+                    event_start_date = datetime.fromisoformat(start_str.replace("Z", "+00:00")).date()
+                    if event_start_date < start_date:
+                        logger.debug(f"Preserving overnight event from {event_start_date}: {event.get('summary')}")
+                        continue
+            
+            try:
+                await self.delete_event(event_id)
+                deleted_count += 1
+            except Exception as e:
+                logger.error(f"Failed to delete event {event_id}: {e}")
+        
+        logger.info(f"Cleared {deleted_count} events from {start_date} to {end_date}")
+        return deleted_count
+
     async def delete_event(self, event_id: str) -> None:
         """Delete a calendar event."""
         try:
-            self.service.events().delete(
-                calendarId=self.calendar_id,
-                eventId=event_id,
-            ).execute()
+            # Run blocking Google API call in thread pool
+            await asyncio.to_thread(
+                self.service.events().delete(
+                    calendarId=self.calendar_id,
+                    eventId=event_id,
+                ).execute
+            )
             
-            logger.info(f"Deleted calendar event: {event_id}")
+            logger.debug(f"Deleted calendar event: {event_id}")
             
         except HttpError as e:
             logger.error(f"Failed to delete calendar event: {e}")

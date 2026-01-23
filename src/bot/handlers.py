@@ -82,15 +82,32 @@ async def _process_schedule_data(schedule_data: list, settings: Settings, proces
     if dry_run:
         logger.warning("Dry-run mode: calendar uploads disabled")
 
-    # Wipe calendar for the month if flag is set
-    if settings.wipe_calendar_before_upload and calendar_service and schedule_data:
-        first_date = schedule_data[0]["date"]
-        logger.warning(f"Wipe mode enabled: deleting all events for {first_date.year}-{first_date.month:02d}")
-        deleted_count = await calendar_service.wipe_month(first_date.year, first_date.month)
-        logger.info(f"Wiped {deleted_count} events before upload")
-
     created_events = []
     stats = {"created": 0, "skipped": 0, "updated": 0, "failed": 0, "unknown": 0}
+
+    # Clear existing events for the date range before uploading
+    if calendar_service and schedule_data:
+        # Get the date range from the schedule
+        dates = [entry["date"] for entry in schedule_data]
+        start_date = min(dates)
+        end_date = max(dates)
+        
+        # Check if first shift is a rest day after a night shift
+        # If so, preserve overnight events from previous day
+        first_entry = schedule_data[0]
+        first_shift_info = first_entry.get("shift_info", {})
+        is_first_rest_after_night = (
+            first_shift_info.get("description", "").endswith("(after night shift)")
+        )
+        
+        logger.info(f"Clearing existing events for {start_date} to {end_date}")
+        deleted_count = await calendar_service.clear_date_range(
+            start_date=start_date,
+            end_date=end_date,
+            preserve_overnight_from_previous=is_first_rest_after_night,
+        )
+        if deleted_count > 0:
+            logger.info(f"Cleared {deleted_count} existing events")
 
     for entry in schedule_data:
         shift_date = entry["date"]
@@ -98,7 +115,8 @@ async def _process_schedule_data(schedule_data: list, settings: Settings, proces
         shift_info = entry.get("shift_info")
 
         # Build base message
-        base_msg = f"• {shift_date.strftime('%a %d %b')}: {shift_code}"
+        shift_name = shift_info.get("name", shift_code) if shift_info else shift_code
+        base_msg = f"• {shift_date.strftime('%a %d %b')}: {shift_name}"
 
         if not shift_info:
             created_events.append(f"{base_msg} (unknown)")
@@ -109,22 +127,14 @@ async def _process_schedule_data(schedule_data: list, settings: Settings, proces
             created_events.append(f"{base_msg} (🧪 dry-run)")
             continue
 
-        # Actually create the calendar event
+        # Create the calendar event (no need to check for existing - we already cleared)
         try:
-            _, status = await calendar_service.create_shift_event(
+            await calendar_service.create_shift_event(
                 shift_date=shift_date,
                 shift_info=shift_info,
-                skip_existing=True,
             )
-            if status == "skipped":
-                created_events.append(f"{base_msg} (already exists)")
-                stats["skipped"] += 1
-            elif status == "updated":
-                created_events.append(f"{base_msg} (🔄 updated)")
-                stats["updated"] += 1
-            else:
-                created_events.append(base_msg)
-                stats["created"] += 1
+            created_events.append(base_msg)
+            stats["created"] += 1
         except Exception as e:
             logger.error(f"Failed to create calendar event: {e}")
             created_events.append(f"{base_msg} (⚠️ failed)")
