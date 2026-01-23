@@ -15,7 +15,7 @@ from src.config import get_settings
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 
 
-def main():
+def main() -> None:
     """Run OAuth flow to get refresh token."""
     print("=" * 60)
     print("Google Calendar Authorization Setup")
@@ -68,4 +68,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
