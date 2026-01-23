@@ -181,9 +181,9 @@ color_fallbacks:
   blue:
     # Blue: Night shifts
     rgb_range:
-      r: [80, 150]
-      g: [150, 220]
-      b: [200, 255]
+      r: [135, 185]
+      g: [170, 220]
+      b: [205, 255]
     shift:
       start: "21:00"
       end: "08:00"
@@ -193,12 +193,12 @@ color_fallbacks:
   light_green:
     # Light Green: AM/Day shifts
     rgb_range:
-      r: [150, 220]
+      r: [160, 210]
       g: [200, 255]
-      b: [100, 180]
+      b: [165, 215]
     shift:
       start: "07:30"
-      end: "15:30"
+      end: "16:00"
       same_day: true
       description: "AM Shift (detected by color)"
 
@@ -224,15 +224,15 @@ color_fallbacks:
       all_day: true
       description: "Leave (detected by color)"
 
-  gray:
-    # Gray: Day off / Rest day
+  white:
+    # White: Day off / Rest day
     rgb_range:
-      r: [145, 175]
-      g: [145, 175]
-      b: [145, 175]
+      r: [160, 210]
+      g: [160, 210]
+      b: [160, 210]
     shift:
       all_day: true
-      description: "Unapproved Leaves (detected by color)"
+      description: "Day Off / Rest Day (detected by color)"
 
   purple:
     # Purple: Medical/Course/PH

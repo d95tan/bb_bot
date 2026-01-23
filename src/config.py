@@ -180,6 +180,15 @@ class ShiftConfig:
         """Get list of all known shift codes."""
         return list(self._code_mappings.keys())
 
+    def get_valid_characters(self) -> str:
+        """Get all unique characters used in shift codes (for OCR whitelist)."""
+        all_chars = set()
+        for code in self._code_mappings.keys():
+            all_chars.update(code.upper())
+        # Always include digits 0-9 and colon (for time parsing)
+        all_chars.update("0123456789:")
+        return "".join(sorted(all_chars))
+
     def is_all_day_shift(self, shift_info: dict) -> bool:
         """Check if a shift is an all-day event."""
         return shift_info.get("all_day", False)
@@ -239,6 +248,26 @@ class GridConfig:
     def header_height_pct(self) -> float:
         """Height of header region as percentage of image height."""
         return self._config.get("header_height_pct", 0.35)
+    
+    @property
+    def crop_top_pct(self) -> float:
+        """Percentage of cell height to remove from top."""
+        return self._config.get("crop_top_pct", 0.05)
+    
+    @property
+    def crop_bottom_pct(self) -> float:
+        """Percentage of cell height to remove from bottom."""
+        return self._config.get("crop_bottom_pct", 0.515)
+
+    @property
+    def grid_columns(self) -> int:
+        """Number of columns in the grid (days per week)."""
+        return self._config.get("grid_columns", 7)
+
+    @property
+    def grid_rows(self) -> int:
+        """Number of rows in the grid (max weeks displayed)."""
+        return self._config.get("grid_rows", 6)
 
 
 # Global instances

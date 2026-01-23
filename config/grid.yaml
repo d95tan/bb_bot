@@ -23,4 +23,12 @@ grid_top_pct: 0.28      # Top of grid (28% from top)
 grid_bottom_pct: 0.775  # Bottom of grid (77.5% from top)
 
 # Fallback for grid_top when auto-detection fails
-grid_top_fallback_pct: 0.38   # 38% from top
+grid_top_fallback_pct: 0.28   # 38% from top
+
+# Crop top and bottom percentages (of each cell)
+crop_top_pct: 0.15      # Remove top 15% (day number)
+crop_bottom_pct: 0.515  # Keep top 51.5% (remove time text)
+
+# Grid structure (number of rows and columns)
+grid_columns: 7         # Days per week (Mon-Sun)
+grid_rows: 6            # Max rows in calendar grid

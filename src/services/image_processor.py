@@ -40,6 +40,66 @@ MONTHS = {
 }
 
 
+def _adjust_rest_days_post_night(schedule: list[dict]) -> list[dict]:
+    """
+    Adjust rest days that follow night shifts.
+    
+    If a rest day (RD, DO) comes after a night shift, it should not be all-day.
+    Instead, it should start when the night shift ends (e.g., 08:00).
+    
+    Args:
+        schedule: List of schedule entries sorted by date
+        
+    Returns:
+        Modified schedule with adjusted rest days
+    """
+    if len(schedule) < 2:
+        return schedule
+    
+    # Sort by date to ensure proper ordering
+    schedule = sorted(schedule, key=lambda x: x["date"])
+    
+    # Rest day codes that should be adjusted
+    rest_day_codes = {"RD", "DO"}
+    
+    for i in range(1, len(schedule)):
+        current = schedule[i]
+        previous = schedule[i - 1]
+        
+        # Check if current day is a rest day
+        current_code = current.get("shift", "").upper()
+        if current_code not in rest_day_codes:
+            continue
+            
+        # Check if previous day was a night shift (same_day = False)
+        prev_info = previous.get("shift_info", {})
+        is_night_shift = not prev_info.get("same_day", True)
+        
+        if not is_night_shift:
+            continue
+            
+        # Get the end time of the night shift (when rest day should start)
+        night_end_time = prev_info.get("end", "08:00")
+        
+        # Modify the rest day to start at night shift end time
+        logger.info(
+            f"Adjusting {current_code} on {current['date']} to start at {night_end_time} "
+            f"(after night shift on {previous['date']})"
+        )
+        
+        # Update shift_info to be a timed event instead of all-day
+        current["shift_info"] = {
+            **current["shift_info"],
+            "all_day": False,
+            "start": night_end_time,
+            "end": "23:59",
+            "same_day": True,
+            "description": f"{current['shift_info'].get('description', 'Rest Day')} (after night shift)",
+        }
+    
+    return schedule
+
+
 def process_schedule_image(image_data: bytes) -> list[dict]:
     """
     Process a schedule screenshot and extract shift information.
@@ -73,6 +133,9 @@ def process_schedule_image(image_data: bytes) -> list[dict]:
     # Extract schedule grid
     schedule = extract_schedule_grid(image, month, year)
 
+    # Post-process: adjust rest days that follow night shifts
+    schedule = _adjust_rest_days_post_night(schedule)
+
     logger.info(f"Extracted {len(schedule)} shifts from image")
 
     return schedule
@@ -87,7 +150,8 @@ def extract_month_year(image: Image.Image) -> tuple[Optional[int], Optional[int]
     # Crop the header area (top portion of image)
     grid_config = get_grid_config()
     width, height = image.size
-    header_region = image.crop((0, 0, width, int(height * grid_config.header_height_pct)))
+    header_region = image.crop(
+        (0, 0, width, int(height * grid_config.header_height_pct)))
 
     # Run OCR on header
     # Use psm 6 for uniform block of text
@@ -137,7 +201,6 @@ def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dic
 
     # Calculate grid boundaries
     grid_bounds = _calculate_grid_boundaries(width, height)
-    _log_grid_boundaries(grid_bounds, height)
 
     # Save debug overlay
     if debug_dir:
@@ -177,17 +240,12 @@ def _setup_debug_dir(year: int, month: int) -> Path:
 def _calculate_grid_boundaries(width: int, height: int) -> dict:
     """Calculate grid boundaries from config percentages."""
     grid_config = get_grid_config()
-    return {
+    bounds = {
         "grid_left": int(width * grid_config.grid_left_pct),
         "grid_right": int(width * grid_config.grid_right_pct),
         "grid_top": int(height * grid_config.grid_top_pct),
         "grid_bottom": int(height * grid_config.grid_bottom_pct),
     }
-
-
-def _log_grid_boundaries(bounds: dict, height: int) -> None:
-    """Log grid boundaries for debugging/calibration."""
-    grid_config = get_grid_config()
     logger.info(
         f"Grid boundaries (pixels): left={bounds['grid_left']}, right={bounds['grid_right']}, "
         f"top={bounds['grid_top']}, bottom={bounds['grid_bottom']}"
@@ -196,15 +254,17 @@ def _log_grid_boundaries(bounds: dict, height: int) -> None:
         f"Grid boundaries (percent): left={grid_config.grid_left_pct}, right={grid_config.grid_right_pct}, "
         f"top={bounds['grid_top']/height:.4f}, bottom={grid_config.grid_bottom_pct}"
     )
+    return bounds
 
 
 def _calculate_cell_dimensions(grid_bounds: dict) -> dict:
     """Calculate cell width and height from grid bounds."""
+    grid_config = get_grid_config()
     grid_width = grid_bounds["grid_right"] - grid_bounds["grid_left"]
     grid_height = grid_bounds["grid_bottom"] - grid_bounds["grid_top"]
     return {
-        "col_width": grid_width // 7,
-        "row_height": grid_height // 6,  # Max 6 rows for a month
+        "col_width": grid_width // grid_config.grid_columns,
+        "row_height": grid_height // grid_config.grid_rows,
     }
 
 
@@ -218,6 +278,7 @@ def _extract_all_cells(
 ) -> list[dict]:
     """Iterate through all cells and extract shift data."""
     shift_config = get_shift_config()
+    grid_config = get_grid_config()
 
     # Get the first day of the month and total days
     first_weekday, num_days = monthrange(year, month)
@@ -226,10 +287,10 @@ def _extract_all_cells(
 
     schedule = []
 
-    for row in range(6):  # Max 6 rows
-        for col in range(7):  # 7 days per week
+    for row in range(grid_config.grid_rows):
+        for col in range(grid_config.grid_columns):
             # Calculate which day this cell represents
-            cell_index = row * 7 + col
+            cell_index = row * grid_config.grid_columns + col
             day_offset = cell_index - first_weekday
 
             if day_offset < 0 or day_offset >= num_days:
@@ -269,11 +330,21 @@ def _crop_cell(
     cell_dims: dict,
 ) -> Image.Image:
     """Crop a single cell from the grid."""
+    grid_config = get_grid_config()
+
     cell_left = grid_bounds["grid_left"] + col * cell_dims["col_width"]
     cell_top = grid_bounds["grid_top"] + row * cell_dims["row_height"]
     cell_right = cell_left + cell_dims["col_width"]
-    cell_bottom = cell_top + cell_dims["row_height"]
-    return image.crop((cell_left, cell_top, cell_right, cell_bottom))
+    cell_height = cell_dims["row_height"]
+
+    # Remove bottom portion (time text) by reducing cell height
+    cropped_top_height = int(cell_height * grid_config.crop_top_pct)
+    cropped_bottom_height = int(
+        cell_height * (1 - grid_config.crop_bottom_pct))
+    cropped_cell_top = cell_top + cropped_top_height
+    cropped_cell_bottom = cell_top + cropped_bottom_height
+
+    return image.crop((cell_left, cropped_cell_top, cell_right, cropped_cell_bottom))
 
 
 def _build_schedule_entry(
@@ -350,17 +421,19 @@ def _save_grid_debug_image(
         width=3
     )
 
+    grid_config = get_grid_config()
+
     # Draw column lines
     grid_width = grid_right - grid_left
-    col_width = grid_width // 7
-    for i in range(1, 7):
+    col_width = grid_width // grid_config.grid_columns
+    for i in range(1, grid_config.grid_columns):
         x = grid_left + i * col_width
         draw.line([(x, grid_top), (x, grid_bottom)], fill="blue", width=2)
 
     # Draw row lines
     grid_height = grid_bottom - grid_top
-    row_height = grid_height // 6
-    for i in range(1, 6):
+    row_height = grid_height // grid_config.grid_rows
+    for i in range(1, grid_config.grid_rows):
         y = grid_top + i * row_height
         draw.line([(grid_left, y), (grid_right, y)], fill="blue", width=2)
 
@@ -375,13 +448,36 @@ def extract_cell_data(cell_image: Image.Image) -> tuple[Optional[str], Optional[
     Returns:
         Tuple of (shift_code, dominant_rgb_color)
     """
+    settings = get_settings()
+
     # Get dominant color from the cell (for color fallback)
     dominant_color = get_dominant_color(cell_image)
 
+    # Color-only mode: skip OCR entirely
+    if settings.color_only_mode:
+        logger.debug(f"Color-only mode: detected RGB{dominant_color}")
+        return None, dominant_color
+
+    # Scale up the image for better OCR accuracy (cell is already cropped in _crop_cell)
+    scaled_image = _scale_image(cell_image)
+
     # Run OCR to extract shift code
-    # Use config for better text detection
-    custom_config = r'--oem 3 --psm 6'
-    cell_text = pytesseract.image_to_string(cell_image, config=custom_config)
+    # Build whitelist from actual shift codes in config
+    shift_config = get_shift_config()
+    whitelist = shift_config.get_valid_characters()
+    logger.debug(f"OCR whitelist from shifts.yaml: {whitelist}")
+
+    # PSM 6 = Assume a single uniform block of text
+    # OEM 3 = Default engine mode
+    # Whitelist = Only allow characters that are actually used in shift codes
+    # Disable dictionaries to prevent forming English words (e.g., D0G8 -> DOGS)
+    custom_config = (
+        f'--oem 3 --psm 6 '
+        f'-c tessedit_char_whitelist={whitelist} '
+        f'-c load_system_dawg=0 '
+        f'-c load_freq_dawg=0'
+    )
+    cell_text = pytesseract.image_to_string(scaled_image, config=custom_config)
 
     # Debug: log raw OCR text
     logger.debug(f"Raw OCR text: {repr(cell_text)}")
@@ -435,7 +531,7 @@ def parse_shift_code(text: str) -> Optional[str]:
             match = re.match(pattern, line)
             if match:
                 code = match.group(1)
-                # Normalize O/0 confusion
+                # Normalize with color hint for disambiguation
                 code = normalize_shift_code(code)
                 return code
 
@@ -452,10 +548,10 @@ def normalize_shift_code(code: str) -> str:
 
     Common OCR confusions:
     - O ↔ 0 (letter O vs zero)
-    - S ↔ 8 (similar shape)
+    - S ↔ 8 ↔ 9 (similar shapes)
     - G ↔ 6 (similar shape)
     - I ↔ 1 (similar shape)
-    - B ↔ 8 (similar shape)
+    - B ↔ 8 ↔ D (similar shapes)
     """
     shift_config = get_shift_config()
     known_codes = {c.upper() for c in shift_config.get_all_codes()}
@@ -475,11 +571,15 @@ def normalize_shift_code(code: str) -> str:
     if normalized in known_codes:
         return normalized
 
-    # Try OCR character substitutions to find a match
-    # Common confusions: S↔8, G↔6, O↔0, I↔1, B↔8
+    # OCR character substitutions - order matters for tiebreaking
+    # Common confusions: S↔8↔9, G↔6, O↔0, I↔1, B↔8↔D
     ocr_substitutions = [
         ('S', '8'),
+        ('S', '9'),  # S can also look like 9
         ('8', 'S'),
+        ('9', 'S'),  # 9 can also look like S
+        ('8', '9'),  # 8 and 9 can be confused
+        ('9', '8'),
         ('G', '6'),
         ('6', 'G'),
         ('O', '0'),
@@ -504,28 +604,42 @@ def normalize_shift_code(code: str) -> str:
             s = "D0" + s[2:]
         return s
 
+    # Collect all possible candidates
+    candidates = set()
+
     # Try single character substitutions
     for old_char, new_char in ocr_substitutions:
         if old_char in normalized:
             candidate = normalized.replace(old_char, new_char)
-            # Apply basic normalization after substitution
             candidate = apply_basic_normalization(candidate)
             if candidate in known_codes:
-                logger.debug(f"OCR correction: {code} -> {candidate}")
-                return candidate
+                candidates.add(candidate)
 
     # Try substitutions at each position individually
     for i, char in enumerate(normalized):
         for old_char, new_char in ocr_substitutions:
             if char == old_char:
                 candidate = normalized[:i] + new_char + normalized[i + 1:]
-                # Apply basic normalization after substitution
                 candidate = apply_basic_normalization(candidate)
                 if candidate in known_codes:
-                    logger.debug(f"OCR correction: {code} -> {candidate}")
-                    return candidate
+                    candidates.add(candidate)
 
-    return normalized
+    # If no candidates found, return the normalized code
+    if not candidates:
+        return normalized
+
+    # If only one candidate, return it
+    if len(candidates) == 1:
+        result = candidates.pop()
+        logger.debug(f"OCR correction: {code} -> {result}")
+        return result
+
+    # Multiple candidates - return first alphabetically (deterministic)
+    result = sorted(candidates)[0]
+    logger.warning(
+        f"Ambiguous OCR: '{code}' could be {sorted(candidates)}, picking '{result}'"
+    )
+    return result
 
 
 def get_dominant_color(image: Image.Image) -> tuple[int, int, int]:
@@ -575,6 +689,14 @@ def validate_image(image_data: bytes) -> tuple[bool, Optional[str]]:
         return False, "Unsupported image format. Please send a PNG or JPEG."
 
     return True, None
+
+
+def _scale_image(image: Image.Image) -> Image.Image:
+    """
+    Scale an image up for better OCR accuracy.
+    """
+    scale_factor = 2
+    return image.resize((image.width * scale_factor, image.height * scale_factor), Image.Resampling.LANCZOS)
 
 
 @deprecated("Use grid_config.grid_top_pct instead")
