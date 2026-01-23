@@ -1,0 +1,8 @@
+{
+    "autopep8.args": ["--ignore", "E402"],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": false
+}
