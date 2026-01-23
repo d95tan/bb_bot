@@ -222,3 +222,40 @@ class CalendarService:
         except HttpError as e:
             logger.error(f"Failed to delete calendar event: {e}")
             raise
+
+    async def wipe_month(self, year: int, month: int) -> int:
+        """
+        Delete all events in a specific month.
+        
+        Args:
+            year: Year (e.g., 2025)
+            month: Month (1-12)
+            
+        Returns:
+            Number of events deleted
+        """
+        from calendar import monthrange
+        
+        # Get first and last day of month
+        _, last_day = monthrange(year, month)
+        start_date = date(year, month, 1)
+        end_date = date(year, month, last_day)
+        
+        logger.warning(f"Wiping calendar events for {year}-{month:02d}")
+        
+        # Get all events in the month
+        events = await self.get_shifts_for_range(start_date, end_date)
+        
+        # Delete each event
+        deleted_count = 0
+        for event in events:
+            event_id = event.get("id")
+            if event_id:
+                try:
+                    await self.delete_event(event_id)
+                    deleted_count += 1
+                except HttpError as e:
+                    logger.error(f"Failed to delete event {event_id}: {e}")
+        
+        logger.info(f"Deleted {deleted_count} events from {year}-{month:02d}")
+        return deleted_count

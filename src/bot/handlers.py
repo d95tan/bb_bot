@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 
 def is_authorized_user(user_id: int) -> bool:
-    """Check if user is the authorized user."""
+    """Check if user is in the list of authorized users."""
     settings = get_settings()
-    return user_id == settings.telegram_user_id
+    return user_id in settings.authorized_user_ids
 
 
 def _build_calendar_status(dry_run: bool, stats: dict) -> str:
@@ -81,6 +81,13 @@ async def _process_schedule_data(schedule_data: list, settings: Settings, proces
 
     if dry_run:
         logger.warning("Dry-run mode: calendar uploads disabled")
+
+    # Wipe calendar for the month if flag is set
+    if settings.wipe_calendar_before_upload and calendar_service and schedule_data:
+        first_date = schedule_data[0]["date"]
+        logger.warning(f"Wipe mode enabled: deleting all events for {first_date.year}-{first_date.month:02d}")
+        deleted_count = await calendar_service.wipe_month(first_date.year, first_date.month)
+        logger.info(f"Wiped {deleted_count} events before upload")
 
     created_events = []
     stats = {"created": 0, "skipped": 0, "updated": 0, "failed": 0, "unknown": 0}
