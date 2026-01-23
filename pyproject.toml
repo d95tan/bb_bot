@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.1.9",
+    "flake8>=7.0.0",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "watchfiles>=0.21.0",
@@ -39,14 +39,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*", "config*"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "W"]
-ignore = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
