@@ -1,26 +1,30 @@
 # Telegram Shift Schedule Bot
 
-A simple, stateless Telegram bot that processes shift work schedule screenshots and adds them to Google Calendar.
+A Telegram bot that processes shift work schedule screenshots using OCR and automatically adds them to Google Calendar.
 
 ## Features
 
-- **Screenshot Processing**: Send a screenshot of your shift schedule, and the bot extracts the shifts automatically (placeholder implementation - awaiting sample images)
-- **Google Calendar Integration**: Automatically creates calendar events for each shift
-- **Configurable Shifts**: Easy to add/edit shift types and timings via YAML config
-- **Single User**: Designed for personal use with minimal setup
+- **Screenshot Processing**: Send a screenshot of your shift schedule, and the bot extracts shifts using Tesseract OCR
+- **Google Calendar Integration**: Automatically creates/updates calendar events for each shift
+- **Smart OCR**: Character whitelisting, dictionary bypass, and fuzzy matching for common OCR errors
+- **Color Fallback**: When OCR fails, uses color detection to identify shift types
+- **Configurable Shifts**: Easy to customize shift types, timings, and colors via YAML config
+- **Multi-User Support**: Allow multiple Telegram users to use the bot
+- **Night Shift Handling**: Automatically adjusts rest days that follow night shifts
+- **Docker Support**: Easy deployment with Docker and Docker Compose
 
 ## Supported Shift Types
 
+Shift timings are fully customizable in `config/shifts.yaml`. Example:
+
 | Shift | Time | Notes |
 |-------|------|-------|
-| AM | 07:30 - 15:30 | Morning shift |
-| PM | 13:30 - 21:30 | Afternoon shift |
-| Night | 21:00 - 08:00 | Overnight (ends next day) |
+| AM (A1-A6) | 07:30 - 15:00+ | Morning shifts |
+| PM (P1-P3) | 13:30 - 21:30+ | Afternoon shifts |
+| Night (N1) | 21:00 - 08:00 | Overnight (ends next day) |
 | Training | 08:00 - 18:00 | Training day |
-| Off | All day | Day off |
-| Annual Leave | All day | Leave day |
-
-Shift timings can be customized in `config/shifts.yaml`.
+| Off (DO/RD) | All day | Day off / Rest day |
+| Leave (AL/HL) | All day | Annual/Hospital leave |
 
 ## Prerequisites
 
@@ -45,7 +49,7 @@ brew install tesseract
 
 **Linux (Ubuntu/Debian):**
 ```bash
-sudo apt install tesseract-ocr
+sudo apt install tesseract-ocr tesseract-ocr-eng
 ```
 
 ## Setup
@@ -53,7 +57,8 @@ sudo apt install tesseract-ocr
 ### 1. Clone and Install Dependencies
 
 ```bash
-cd telebot-app
+git clone <repo-url>
+cd bb_bot
 python -m venv venv
 
 # Windows
@@ -79,7 +84,7 @@ pip install -e ".[dev]"
 
 1. Search for [@userinfobot](https://t.me/userinfobot) on Telegram
 2. Send any message to it
-3. Copy your user ID
+3. Copy your user ID (and your partner's if needed)
 
 ### 4. Setup Google Calendar API
 
@@ -100,23 +105,24 @@ pip install -e ".[dev]"
 
 ### 5. Configure Environment Variables
 
-Create a `.env` file in the project root:
+Copy `env.example` to `.env` and fill in your values:
 
 ```env
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=your_bot_token_here
-TELEGRAM_USER_ID=your_telegram_user_id
+TELEGRAM_USER_IDS=123456789,987654321  # Comma-separated for multiple users
 
 # Google Calendar API
 GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_client_secret
-
-# Leave empty for now - will be filled after auth setup
-GOOGLE_REFRESH_TOKEN=
-
-# Calendar settings
+GOOGLE_REFRESH_TOKEN=  # Leave empty - will be filled after auth setup
 GOOGLE_CALENDAR_ID=primary
-TIMEZONE=Australia/Sydney
+TIMEZONE=Asia/Singapore
+
+# Feature Flags
+ENABLE_CALENDAR_UPLOAD=true      # Set to false for dry-run mode
+DEBUG_SAVE_CELLS=false           # Save cropped cell images for debugging
+COLOR_ONLY_MODE=false            # Skip OCR, use only color detection
 ```
 
 ### 6. Authorize Google Calendar
@@ -124,11 +130,8 @@ TIMEZONE=Australia/Sydney
 Run the authorization setup script:
 
 ```bash
-# Using the CLI command
 telebot-auth
-
-# Or using Python module
-python -m src.auth_setup
+# Or: python -m src.auth_setup
 ```
 
 This will:
@@ -136,20 +139,16 @@ This will:
 2. Ask you to grant calendar access
 3. Display a refresh token
 
-Copy the refresh token and add it to your `.env` file:
-
-```env
-GOOGLE_REFRESH_TOKEN=your_refresh_token_here
-```
+Copy the refresh token to your `.env` file.
 
 ### 7. Run the Bot
 
 ```bash
-# Using the CLI command
+# Production
 telebot
 
-# Or using Python module
-python -m src.main
+# Development (with auto-reload)
+telebot-dev
 ```
 
 ## Usage
@@ -164,9 +163,19 @@ python -m src.main
 
 ### Uploading a Schedule
 
-1. Take a screenshot of your shift schedule
-2. Send it to the bot
+1. Take a screenshot of your shift schedule app
+2. Send it to the bot (as photo or uncompressed file)
 3. The bot will process it and add events to your calendar
+
+### Utility Scripts
+
+```bash
+# Test OCR on sample images
+python scripts/test_ocr.py sample_images/
+
+# Wipe a month's calendar events
+python scripts/wipe_calendar.py
+```
 
 ## Configuration
 
@@ -178,24 +187,27 @@ The configuration uses a two-tier lookup system:
 
 ```yaml
 code_mappings:
-  E0M8:
-    start: "13:30"
-    end: "21:30"
+  D0G8:
+    name: "A3"              # Display name for calendar
+    start: "07:30"
+    end: "15:30"
     same_day: true
-    description: "PM Shift"
+    description: "D0G8 - AM Shift"
   
   N2111:
+    name: "N1"
     start: "21:00"
     end: "08:00"
-    same_day: false  # Overnight
+    same_day: false         # Overnight shift
     description: "Night Shift"
   
   DO:
+    name: "Day Off"
     all_day: true
     description: "Day Off"
 ```
 
-**2. Color Fallbacks (Secondary)** - Used when code is unknown:
+**2. Color Fallbacks (Secondary)** - Used when OCR fails:
 
 ```yaml
 color_fallbacks:
@@ -211,65 +223,153 @@ color_fallbacks:
       description: "PM Shift (detected by color)"
 ```
 
-### Adding New Shift Codes
+### Grid Configuration (`config/grid.yaml`)
 
-1. Edit `config/shifts.yaml`
-2. Add a new entry under `code_mappings:`
-3. No restart needed - config is loaded per request
+Calibrate the OCR grid boundaries for your phone's screenshot format:
+
+```yaml
+# Grid boundaries (percentage of image size)
+grid_left_pct: 0.02
+grid_right_pct: 0.98
+grid_top_pct: 0.28
+grid_bottom_pct: 0.775
+
+# Cell cropping (remove day number and time text)
+crop_top_pct: 0.15
+crop_bottom_pct: 0.515
+
+# Grid structure
+grid_columns: 7
+grid_rows: 6
+```
+
+To calibrate:
+1. Set `DEBUG_SAVE_CELLS=true` in `.env`
+2. Send an image to the bot
+3. Check `debug/<month>/_grid_overlay.png`
+4. Adjust values until the grid aligns
+
+## Docker Deployment
+
+### Using Docker Compose (Recommended)
+
+```bash
+# Build and run
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+### Manual Docker Build
+
+```bash
+docker build -t bb-bot .
+docker run -d --env-file .env -v ./config:/app/config:ro bb-bot
+```
 
 ## Project Structure
 
 ```
-telebot-app/
+bb_bot/
 ├── src/
 │   ├── main.py                 # Entry point
+│   ├── dev.py                  # Development server with auto-reload
 │   ├── config.py               # Configuration management
 │   ├── auth_setup.py           # Google OAuth setup script
 │   ├── bot/
 │   │   ├── handlers.py         # Telegram message handlers
 │   │   └── commands.py         # Command definitions
 │   └── services/
-│       ├── image_processor.py  # Schedule extraction (placeholder)
+│       ├── image_processor.py  # OCR and schedule extraction
 │       ├── calendar_service.py # Google Calendar integration
-│       └── reminder_service.py # Medication reminders (stub)
+│       └── reminder_service.py # Reminders (stub)
 ├── config/
-│   └── shifts.yaml             # Shift definitions
-├── pyproject.toml              # Project config & dependencies
+│   ├── shifts.yaml             # Shift definitions
+│   └── grid.yaml               # Grid calibration
+├── scripts/
+│   ├── test_ocr.py             # OCR testing utility
+│   └── wipe_calendar.py        # Calendar cleanup utility
+├── tests/
+│   └── test_image_processor.py # Unit tests
+├── .github/
+│   └── workflows/
+│       └── pr-validation.yml   # CI workflow
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
 └── README.md
+```
+
+## Development
+
+### Running Tests
+
+```bash
+# Activate venv first
+.\venv\Scripts\python.exe -m pytest tests/ -v
+
+# Or after activating venv
+pytest tests/ -v
+```
+
+### Linting
+
+```bash
+flake8 src/
+```
+
+### Debug Mode
+
+Enable debug features in `.env`:
+
+```env
+DEBUG_SAVE_CELLS=true           # Saves cropped cell images to debug/
+ENABLE_CALENDAR_UPLOAD=false    # Dry-run mode (no calendar changes)
 ```
 
 ## Troubleshooting
 
 ### "Google Calendar is not configured"
 
-Run `python -m src.auth_setup` to authorize the bot and get a refresh token.
+Run `telebot-auth` to authorize the bot and get a refresh token.
 
-### "Could not extract schedule from image"
+### OCR not reading shifts correctly
 
-The image processor is currently a placeholder. It returns mock data for testing. Actual OCR implementation is pending sample screenshots.
+1. Enable debug mode: `DEBUG_SAVE_CELLS=true`
+2. Send an image and check `debug/<month>/` for cropped cells
+3. Adjust `config/grid.yaml` if grid alignment is off
+4. Add missing shift codes to `config/shifts.yaml`
 
 ### Bot doesn't respond
 
-- Make sure your Telegram user ID in `.env` matches your actual ID
-- Check that the bot token is correct
-- Verify the bot is running (`python -m src.main`)
+- Verify your user ID is in `TELEGRAM_USER_IDS`
+- Check the bot token is correct
+- Ensure the bot is running
+
+### D0G8 being read as DOGS
+
+The OCR has dictionary bypass enabled, but some misreads may still occur. The bot uses character whitelisting from your `shifts.yaml` codes to reduce errors.
 
 ## How It Works
 
-1. **Screenshot Processing**: When you send a schedule screenshot:
-   - OCR extracts the month/year from the header
-   - Each calendar cell is analyzed for shift codes
-   - Colors are detected as a fallback for unknown codes
+1. **Screenshot Processing**:
+   - OCR extracts month/year from the header
+   - Grid is divided into cells based on `grid.yaml` calibration
+   - Each cell is cropped, scaled, and processed with Tesseract
+   - Shift codes are normalized to handle OCR errors (D0G8 ↔ DOGS, etc.)
 
-2. **Shift Lookup**: Two-tier system:
-   - First tries to match the shift code (e.g., "E0M8") in `code_mappings`
+2. **Shift Lookup** (Two-tier):
+   - First matches shift code in `code_mappings`
    - Falls back to color detection if code is unknown
 
-3. **Calendar Events**: Creates Google Calendar events with proper timing based on shift config
-
-## Future Features (Planned)
-
-- **Medication Reminders**: Periodic reminders based on shift schedule (stub implementation included)
+3. **Calendar Events**:
+   - Clears existing events for the date range
+   - Creates new events with proper timing
+   - Rest days after night shifts start at 8am (not all-day)
 
 ## License
 
