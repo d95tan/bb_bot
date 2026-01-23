@@ -58,7 +58,7 @@ def main() -> None:
     setup_handlers(application)
     
     # Run the bot
-    logger.info(f"Bot is running for user ID: {settings.telegram_user_id}")
+    logger.info(f"Bot is running for user IDs: {settings.telegram_user_ids}")
     logger.info("Press Ctrl+C to stop.")
     application.run_polling(allowed_updates=["message"])
 
