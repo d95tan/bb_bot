@@ -50,12 +50,12 @@ Add the following environment variables in the "Container Environment Variables"
 
 ### Storage (Volumes)
 
-To persist configuration (like shift definitions) and allow editing them without rebuilding the image, mount the configuration directory.
+**Optional**: To persist configuration (like shift definitions) and allow editing them without rebuilding the image, mount the configuration directory. If left unmounted, the bot will use the default configuration files included in the Docker image.
 
 - **Host Path**: `/mnt/pool/dataset/bb_bot/config` (Example path on your NAS)
 - **Mount Path**: `/app/config`
 
-You should copy your local `config/shifts.yaml` and `config/grid.yaml` to this directory on your NAS.
+If you mount this path, you should copy your local `config/shifts.yaml` and `config/grid.yaml` to this directory on your NAS.
 
 Optional: To save debug images
 - **Host Path**: `/mnt/pool/dataset/bb_bot/debug`
