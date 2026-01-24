@@ -2,10 +2,12 @@
 FROM python:3.11-slim
 
 # Install Tesseract OCR and other dependencies
+# Install Tesseract OCR and other dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
-    libgl1-mesa-glx \
+    libgl1 \
+    libglx-mesa0 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,12 +17,12 @@ WORKDIR /app
 # Copy dependency files first (for better caching)
 COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir .
-
 # Copy application code
 COPY src/ ./src/
 COPY config/ ./config/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir .
 
 # Create directory for debug output (optional)
 RUN mkdir -p /app/debug
