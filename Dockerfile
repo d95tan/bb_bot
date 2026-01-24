@@ -15,12 +15,12 @@ WORKDIR /app
 # Copy dependency files first (for better caching)
 COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir .
-
 # Copy application code
 COPY src/ ./src/
 COPY config/ ./config/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir .
 
 # Create directory for debug output (optional)
 RUN mkdir -p /app/debug
