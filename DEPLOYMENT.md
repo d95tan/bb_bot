@@ -11,7 +11,29 @@ You can also manually trigger the build in the "Actions" tab of your GitHub repo
 The image will be available at:
 `ghcr.io/d95tan/bb_bot:latest`
 
-(Note: Ensure your GitHub repository visibility allows access, or you are logged in to GHCR on your TrueNAS if it's private).
+### Authentication (For Private Repositories)
+
+If your GitHub repository is private, you need to provide TrueNAS with credentials to pull the image.
+
+**1. Generate a GitHub Personal Access Token (PAT)**
+   - Go to GitHub -> Settings -> Developer settings -> Personal access tokens -> Tokens (classic).
+   - Click **Generate new token (classic)**.
+   - Give it a name (e.g., "TrueNAS").
+   - Select the `read:packages` scope.
+   - Generate and copy the token.
+
+**2. Add Credential to TrueNAS Scale**
+   - In the TrueNAS web interface, go to **Apps**.
+   - Click on the **Settings** dropdown (or look for "Manage Container Registries").
+   - Click **Add**.
+   - **Registry**: `https://ghcr.io` (or Select "GitHub" if available)
+   - **Username**: Your GitHub Username
+   - **Password**: The Personal Access Token (PAT) you copied.
+   - Save the credential.
+
+**3. Use Credential in App**
+   - When configured the app, under the "Image" or "Container" section, look for **Image Pull Secrets** or **Container Registry**.
+   - Select the credential you just created.
 
 ## 2. Prepare Configuration
 
