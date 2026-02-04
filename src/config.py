@@ -143,7 +143,10 @@ class ShiftConfig:
                 b_range[0] <= b <= b_range[1]
             ):
                 shift = color_config.get("shift", {})
-                return {"name": color_name, **shift}
+                result = {"name": color_name, **shift}
+                if color_config.get("skip", False):
+                    result["skip"] = True
+                return result
 
         return None
 

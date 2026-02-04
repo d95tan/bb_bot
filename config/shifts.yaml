@@ -259,14 +259,12 @@ color_fallbacks:
       description: "Leave (detected by YELLOW colour)"
 
   white:
-    # White: Day off / Rest day
+    # White: Day off / Rest day (if there is text. However, if there is no text, it is an empty cell and should be skipped)
     rgb_range:
       r: [160, 210]
       g: [160, 210]
       b: [160, 210]
-    shift:
-      all_day: true
-      description: "Day Off / Rest Day (detected by WHITE colour)"
+    skip: true
 
   purple:
     # Purple: Public Holiday
