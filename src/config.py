@@ -248,9 +248,24 @@ class GridConfig:
         return self._config.get("grid_top_fallback_pct", 0.38)
 
     @property
-    def header_height_pct(self) -> float:
-        """Height of header region as percentage of image height."""
-        return self._config.get("header_height_pct", 0.35)
+    def header_left_pct(self) -> float:
+        """Left edge of header region as percentage of image width."""
+        return self._config.get("header_left_pct", 0.0)
+
+    @property
+    def header_right_pct(self) -> float:
+        """Right edge of header region as percentage of image width."""
+        return self._config.get("header_right_pct", 1.0)
+
+    @property
+    def header_top_pct(self) -> float:
+        """Top edge of header region as percentage of image height."""
+        return self._config.get("header_top_pct", 0.0)
+
+    @property
+    def header_bottom_pct(self) -> float:
+        """Bottom edge of header region as percentage of image height."""
+        return self._config.get("header_bottom_pct", 0.35)
     
     @property
     def crop_top_pct(self) -> float:
