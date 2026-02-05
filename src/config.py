@@ -67,6 +67,12 @@ class Settings(BaseSettings):
         description="Delete all events in the month before uploading new ones (for development)"
     )
 
+    # Reminder acknowledgment store (optional; if set, use Redis instead of file)
+    redis_url: Optional[str] = Field(
+        default=None,
+        description="Redis URL for shared reminder state (e.g. redis://localhost:6379/0). Enables multi-instance."
+    )
+
     @property
     def is_calendar_configured(self) -> bool:
         """Check if Google Calendar is fully configured."""
@@ -80,6 +86,7 @@ class ShiftConfig:
         self.config_path = Path(config_path)
         self._code_mappings: dict = {}
         self._color_fallbacks: dict = {}
+        self._shift_groups: dict = {}
         self.load()
 
     def load(self) -> None:
@@ -93,6 +100,7 @@ class ShiftConfig:
 
         self._code_mappings = data.get("code_mappings", {})
         self._color_fallbacks = data.get("color_fallbacks", {})
+        self._shift_groups = data.get("shift_groups", {})
 
     def reload(self) -> None:
         """Reload configuration from file."""
@@ -175,6 +183,49 @@ class ShiftConfig:
                 return shift
 
         return None
+
+    def get_shift_group(self, shift_info: dict) -> str:
+        """
+        Classify shift into group: am, pm, night, or off.
+        Off = all_day; else by shift start time vs shift_groups boundaries.
+        """
+        if shift_info.get("all_day"):
+            return "off"
+        start_str = shift_info.get("start", "09:00")
+        parts = start_str.split(":")
+        hour = int(parts[0]) if parts else 0
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        start_minutes = hour * 60 + minute
+
+        # Evaluate in fixed order: am (< noon), pm (noon–7pm), night (>= 7pm)
+        for group_id in ("am", "pm", "night"):
+            group_config = self._shift_groups.get(group_id, {})
+            start_before = group_config.get("start_before")
+            start_from = group_config.get("start_from")
+            if start_before and start_from is None:
+                # am: start_before "12:00"
+                h, m = map(int, str(start_before).split(":"))
+                if start_minutes < h * 60 + m:
+                    return group_id
+            elif start_from is not None:
+                h, m = map(int, str(start_from).split(":"))
+                lo = h * 60 + m
+                hi = 24 * 60
+                if start_before:
+                    h2, m2 = map(int, str(start_before).split(":"))
+                    hi = h2 * 60 + m2
+                if lo <= start_minutes < hi:
+                    return group_id
+        return "off"
+
+    def get_reminder_minutes(self, group_id: str) -> Optional[int]:
+        """
+        Minutes from shift start when to send reminder.
+        Positive = after start, negative = before start. None = no reminder.
+        """
+        group = self._shift_groups.get(group_id, {})
+        val = group.get("reminder_minutes")
+        return int(val) if val is not None else None
 
     def get_all_codes(self) -> list[str]:
         """Get list of all known shift codes."""
