@@ -26,6 +26,10 @@ ARG INSTALL_DEV=false
 RUN pip install --no-cache-dir . && \
     if [ "$INSTALL_DEV" = "true" ]; then pip install --no-cache-dir .[dev]; fi
 
+# Optional: set when building from a git tag so /version reports the tag (e.g. CI)
+ARG BUILD_VERSION=
+ENV BUILD_VERSION=${BUILD_VERSION}
+
 # Create directory for debug output (optional)
 RUN mkdir -p /app/debug
 

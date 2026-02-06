@@ -18,14 +18,9 @@ from src.config import get_settings, Settings
 from src.services.image_processor import process_schedule_image
 from src.services.calendar_service import CalendarService
 from src.services import reminder_service
-from src.bot.commands import (
-    COMMANDS,
-    HELP_TEXT,
-    START_TEXT,
-    CALENDAR_NOT_CONFIGURED_TEXT,
-    SCHEDULE_UPLOADED_TEXT,
-    PROCESSING_IMAGE_TEXT,
-)
+from src.bot.commands import COMMANDS
+from src.bot import replies
+from src.version import get_version
 
 
 logger = logging.getLogger(__name__)
@@ -40,17 +35,17 @@ def is_authorized_user(user_id: int) -> bool:
 def _build_calendar_status(dry_run: bool, stats: dict) -> str:
     """Build the calendar status message based on results."""
     if dry_run:
-        return "🧪 DRY-RUN MODE: Calendar uploads disabled"
-    
+        return replies.CALENDAR_STATUS_DRY_RUN
+
     created = stats.get("created", 0)
     skipped = stats.get("skipped", 0)
     updated = stats.get("updated", 0)
     failed = stats.get("failed", 0)
-    
+
     # All failed
     if failed > 0 and created == 0 and updated == 0:
-        return f"❌ Failed to add shifts to calendar ({failed} failed)"
-    
+        return replies.CALENDAR_STATUS_ALL_FAILED.format(failed=failed)
+
     # Some failed
     if failed > 0:
         parts = []
@@ -61,18 +56,20 @@ def _build_calendar_status(dry_run: bool, stats: dict) -> str:
         if skipped > 0:
             parts.append(f"{skipped} skipped")
         parts.append(f"{failed} failed")
-        return f"⚠️ Partial success: {', '.join(parts)}"
-    
+        return replies.CALENDAR_STATUS_PARTIAL.format(parts=", ".join(parts))
+
     # All skipped (already exist)
     if skipped > 0 and created == 0 and updated == 0:
-        return f"ℹ️ All {skipped} shifts already exist in calendar"
-    
+        return replies.CALENDAR_STATUS_ALL_SKIPPED.format(skipped=skipped)
+
     # Success with some skipped
     if skipped > 0:
-        return f"✅ Added to calendar ({created} new, {skipped} already existed)"
-    
+        return replies.CALENDAR_STATUS_SUCCESS_SOME_SKIPPED.format(
+            created=created, skipped=skipped
+        )
+
     # All success
-    return "✅ All shifts added to Google Calendar!"
+    return replies.CALENDAR_STATUS_ALL_SUCCESS
 
 
 async def _process_schedule_data(schedule_data: list, settings: Settings, processing_msg: Message) -> None:
@@ -151,7 +148,7 @@ async def _process_schedule_data(schedule_data: list, settings: Settings, proces
     calendar_status = _build_calendar_status(dry_run, stats)
 
     await processing_msg.edit_text(
-        SCHEDULE_UPLOADED_TEXT.format(
+        replies.SCHEDULE_UPLOADED_TEXT.format(
             schedule_summary=summary,
             calendar_status=calendar_status
         ),
@@ -165,10 +162,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     if not is_authorized_user(update.effective_user.id):
-        await update.message.reply_text("⛔ You are not authorized to use this bot.")
+        await update.message.reply_text(replies.UNAUTHORIZED)
         return
 
-    await update.message.reply_text(START_TEXT, parse_mode="Markdown")
+    await update.message.reply_text(replies.START_TEXT, parse_mode="Markdown")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -176,7 +173,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not is_authorized_user(update.effective_user.id):
         return
 
-    await update.message.reply_text(HELP_TEXT, parse_mode="Markdown")
+    await update.message.reply_text(replies.HELP_TEXT, parse_mode="Markdown")
+
+
+async def version_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /version - show deployed package version."""
+    if not is_authorized_user(update.effective_user.id):
+        return
+    await update.message.reply_text(
+        replies.VERSION_REPLY.format(version=get_version())
+    )
 
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -186,7 +192,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     settings = get_settings()
     if not settings.is_calendar_configured:
-        await update.message.reply_text(CALENDAR_NOT_CONFIGURED_TEXT, parse_mode="Markdown")
+        await update.message.reply_text(replies.CALENDAR_NOT_CONFIGURED_TEXT, parse_mode="Markdown")
         return
 
     try:
@@ -199,14 +205,11 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         events = await calendar_service.get_shifts_for_range(today, end_date)
 
         if not events:
-            await update.message.reply_text(
-                "📭 No upcoming shifts found in your calendar.\n\n"
-                "Upload a screenshot of your shift schedule to add shifts."
-            )
+            await update.message.reply_text(replies.NO_SCHEDULE_FOUND)
             return
 
         # Format schedule
-        lines = ["📅 *Your Upcoming Schedule:*\n"]
+        lines = [replies.SCHEDULE_HEADER]
 
         for event in events:
             summary = event.get("summary", "Unknown")
@@ -228,7 +231,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     except Exception as e:
         logger.error(f"Error fetching schedule: {e}")
-        await update.message.reply_text(f"❌ Error fetching schedule: {str(e)}")
+        await update.message.reply_text(replies.SCHEDULE_FETCH_ERROR.format(error=str(e)))
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -238,11 +241,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     settings = get_settings()
     if not settings.is_calendar_configured:
-        await update.message.reply_text(CALENDAR_NOT_CONFIGURED_TEXT, parse_mode="Markdown")
+        await update.message.reply_text(replies.CALENDAR_NOT_CONFIGURED_TEXT, parse_mode="Markdown")
         return
 
     # Send processing message
-    processing_msg = await update.message.reply_text(PROCESSING_IMAGE_TEXT)
+    processing_msg = await update.message.reply_text(replies.PROCESSING_IMAGE_TEXT)
 
     try:
         # Download the photo (get the largest size)
@@ -261,10 +264,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         schedule_data = process_schedule_image(image_bytes.read())
 
         if not schedule_data:
-            await processing_msg.edit_text(
-                "❌ Could not extract schedule from the image. "
-                "Please make sure the screenshot is clear and try again."
-            )
+            await processing_msg.edit_text(replies.IMAGE_EXTRACT_FAILED)
             return
 
         # Process the schedule data and update calendar
@@ -272,9 +272,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     except Exception as e:
         logger.error(f"Error processing schedule image: {e}")
-        await processing_msg.edit_text(
-            f"❌ An error occurred while processing your schedule: {str(e)}"
-        )
+        await processing_msg.edit_text(replies.IMAGE_PROCESSING_ERROR.format(error=str(e)))
 
 
 async def took_medication_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -283,7 +281,7 @@ async def took_medication_command(update: Update, context: ContextTypes.DEFAULT_
         return
     user_id = update.effective_user.id
     reminder_service.acknowledge_medication(user_id)
-    await update.message.reply_text("✅ Recorded. Stay safe!")
+    await update.message.reply_text(replies.TOOK_MEDICATION_REPLY)
 
 
 async def reminder_ack_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -291,14 +289,14 @@ async def reminder_ack_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if not update.callback_query:
         return
     if not is_authorized_user(update.effective_user.id):
-        await update.callback_query.answer("Not authorized.")
+        await update.callback_query.answer(replies.NOT_AUTHORIZED_CALLBACK)
         return
     user_id = update.effective_user.id
     reminder_service.acknowledge_medication(user_id)
-    await update.callback_query.answer("Done!")
+    await update.callback_query.answer(replies.REMINDER_ACK_CALLBACK_ANSWER)
     if update.callback_query.message:
         await update.callback_query.edit_message_text(
-            "💊 _Acknowledged._",
+            replies.REMINDER_ACK_EDIT_TEXT,
             parse_mode="Markdown",
         )
 
@@ -308,10 +306,7 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not is_authorized_user(update.effective_user.id):
         return
 
-    await update.message.reply_text(
-        "📷 Please send me a screenshot of your shift schedule.\n\n"
-        "Use /help to see available commands."
-    )
+    await update.message.reply_text(replies.SEND_SCREENSHOT)
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -323,20 +318,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     # Check if it's an image
     if not document.mime_type or not document.mime_type.startswith("image/"):
-        await update.message.reply_text(
-            "📄 That doesn't look like an image. Please send a PNG or JPEG screenshot."
-        )
+        await update.message.reply_text(replies.NOT_AN_IMAGE)
         return
 
     settings = get_settings()
     if not settings.is_calendar_configured:
-        await update.message.reply_text(CALENDAR_NOT_CONFIGURED_TEXT, parse_mode="Markdown")
+        await update.message.reply_text(replies.CALENDAR_NOT_CONFIGURED_TEXT, parse_mode="Markdown")
         return
 
     # Send processing message
     processing_msg = await update.message.reply_text(
-        PROCESSING_IMAGE_TEXT + "\n_(Using uncompressed image for better accuracy)_",
-        parse_mode="Markdown"
+        replies.PROCESSING_IMAGE_TEXT + replies.PROCESSING_IMAGE_UNCOMPRESSED_SUFFIX,
+        parse_mode="Markdown",
     )
 
     try:
@@ -354,10 +347,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         schedule_data = process_schedule_image(image_bytes.read())
 
         if not schedule_data:
-            await processing_msg.edit_text(
-                "❌ Could not extract schedule from the image. "
-                "Please make sure the screenshot is clear and try again."
-            )
+            await processing_msg.edit_text(replies.IMAGE_EXTRACT_FAILED)
             return
 
         # Reuse the same logic from handle_photo
@@ -367,9 +357,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     except Exception as e:
         logger.error(f"Error processing schedule document: {e}")
-        await processing_msg.edit_text(
-            f"❌ An error occurred while processing your schedule: {str(e)}"
-        )
+        await processing_msg.edit_text(replies.IMAGE_PROCESSING_ERROR.format(error=str(e)))
 
 
 def setup_handlers(application: Application) -> None:
@@ -377,6 +365,7 @@ def setup_handlers(application: Application) -> None:
     # Command handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("version", version_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
     application.add_handler(CommandHandler("took_medication", took_medication_command))
 

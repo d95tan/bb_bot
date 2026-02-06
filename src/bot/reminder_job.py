@@ -11,16 +11,11 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from src.config import get_settings
+from src.bot.replies import REMINDER_MESSAGE
 from src.services.calendar_service import CalendarService
 from src.services import reminder_service
 
 logger = logging.getLogger(__name__)
-
-REMINDER_MESSAGE = (
-    "💊 Medication reminder\n\n"
-    "Time to take your medication before/for your shift.\n\n"
-    "Tap below when done, or use /took_medication"
-)
 
 
 def _event_to_shift_info(event: dict, tz_str: str) -> tuple[date, dict] | None:
