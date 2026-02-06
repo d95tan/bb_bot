@@ -2,7 +2,8 @@
 
 import asyncio
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -148,11 +149,12 @@ class CalendarService:
         }
     
     async def get_shifts_for_date(self, target_date: date) -> list[dict]:
-        """Get all shift events for a specific date."""
-        # Search for events on that date
-        time_min = datetime.combine(target_date, datetime.min.time()).isoformat() + "Z"
-        time_max = datetime.combine(target_date + timedelta(days=1), datetime.min.time()).isoformat() + "Z"
-        
+        """Get all shift events for a specific date (in the calendar's timezone)."""
+        tz = ZoneInfo(self.settings.timezone)
+        time_min = datetime.combine(target_date, time.min, tzinfo=tz).isoformat()
+        time_max = datetime.combine(
+            target_date + timedelta(days=1), time.min, tzinfo=tz
+        ).isoformat()
         try:
             # Run blocking Google API call in thread pool
             events_result = await asyncio.to_thread(

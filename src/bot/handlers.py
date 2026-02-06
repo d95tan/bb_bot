@@ -9,6 +9,7 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
@@ -16,6 +17,7 @@ from telegram.ext import (
 from src.config import get_settings, Settings
 from src.services.image_processor import process_schedule_image
 from src.services.calendar_service import CalendarService
+from src.services import reminder_service
 from src.bot.commands import (
     COMMANDS,
     HELP_TEXT,
@@ -275,6 +277,32 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
 
 
+async def took_medication_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /took_medication - mark medication as acknowledged for today."""
+    if not is_authorized_user(update.effective_user.id):
+        return
+    user_id = update.effective_user.id
+    reminder_service.acknowledge_medication(user_id)
+    await update.message.reply_text("✅ Recorded. Stay safe!")
+
+
+async def reminder_ack_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle inline 'I took it' button on reminder message."""
+    if not update.callback_query:
+        return
+    if not is_authorized_user(update.effective_user.id):
+        await update.callback_query.answer("Not authorized.")
+        return
+    user_id = update.effective_user.id
+    reminder_service.acknowledge_medication(user_id)
+    await update.callback_query.answer("Done!")
+    if update.callback_query.message:
+        await update.callback_query.edit_message_text(
+            "💊 _Acknowledged._",
+            parse_mode="Markdown",
+        )
+
+
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle text messages."""
     if not is_authorized_user(update.effective_user.id):
@@ -350,6 +378,12 @@ def setup_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
+    application.add_handler(CommandHandler("took_medication", took_medication_command))
+
+    # Reminder acknowledgment button
+    application.add_handler(
+        CallbackQueryHandler(reminder_ack_callback, pattern="^reminder_ack$")
+    )
 
     # Photo handler (compressed by Telegram)
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))

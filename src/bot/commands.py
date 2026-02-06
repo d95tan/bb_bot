@@ -8,6 +8,7 @@ COMMANDS = [
     BotCommand("start", "Initialize the bot"),
     BotCommand("help", "Show available commands and usage instructions"),
     BotCommand("schedule", "View your upcoming schedule from Google Calendar"),
+    BotCommand("took_medication", "Mark medication as taken today"),
 ]
 
 
@@ -20,6 +21,7 @@ Upload a screenshot of your shift schedule, and I'll add it to your Google Calen
 /start - Initialize the bot
 /help - Show this help message
 /schedule - View your upcoming schedule
+/took_medication - Mark medication as taken today (stops reminder for today)
 
 *How to use:*
 1. Send me a screenshot of your shift schedule

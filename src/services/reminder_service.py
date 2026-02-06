@@ -21,15 +21,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.config import get_settings, get_shift_config
-
+from src.constants import REMINDER_ACK_TTL_SECONDS
 
 logger = logging.getLogger(__name__)
 
 _ACK_FILE = Path("data/reminder_acknowledgments.json")
 _REDIS_KEY_PREFIX = "bb_bot:reminder_ack"
 _REDIS_SENT_PREFIX = "bb_bot:reminder_sent"
-_ACK_TTL_SECONDS = 48 * 3600  # 48h so old keys expire
-_SENT_SLOT_TTL_SECONDS = 600  # 10 min; only one instance sends per slot
 
 _pending_reminders: dict[int, datetime] = {}
 
@@ -162,7 +160,7 @@ def acknowledge_medication(user_id: int) -> None:
     if r is not None:
         try:
             key = _ack_key(user_id, today)
-            r.set(key, "1", ex=_ACK_TTL_SECONDS)
+            r.set(key, "1", ex=REMINDER_ACK_TTL_SECONDS)
         except Exception as e:
             logger.warning("Redis set failed: %s", e)
     else:
@@ -185,9 +183,10 @@ def try_acquire_reminder_slot(user_id: int, reminder_dt: datetime) -> bool:
     if r is None:
         return True
     key = _sent_slot_key(user_id, reminder_dt)
+    ttl = get_settings().reminder_sent_slot_ttl_seconds
     try:
         # SET key "1" NX EX TTL: set only if key does not exist; then expire
-        return bool(r.set(key, "1", nx=True, ex=_SENT_SLOT_TTL_SECONDS))
+        return bool(r.set(key, "1", nx=True, ex=ttl))
     except Exception as e:
         logger.warning("Redis set NX failed: %s", e)
         return True  # allow send on Redis error to avoid silencing reminders

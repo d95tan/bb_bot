@@ -72,6 +72,16 @@ class Settings(BaseSettings):
         default=None,
         description="Redis URL for shared reminder state (e.g. redis://localhost:6379/0). Enables multi-instance."
     )
+    # How often the reminder job runs (seconds). Use a smaller value in dev for easier testing (e.g. 60).
+    reminder_job_interval_seconds: int = Field(
+        default=600,
+        description="Reminder check interval in seconds (default 600). Set to 60 or 30 in dev to test quickly.",
+    )
+    # How long (seconds) we remember "already sent" for a reminder slot (avoids duplicate messages). Shorten in dev (e.g. 30) so you can trigger the same reminder again soon.
+    reminder_sent_slot_ttl_seconds: int = Field(
+        default=600,
+        description="TTL for 'reminder sent' slot in Redis (default 600). Set to 30–60 in dev to re-trigger reminders quickly.",
+    )
 
     @property
     def is_calendar_configured(self) -> bool:
