@@ -31,7 +31,8 @@ async def post_init(application: Application) -> None:
     settings = get_settings()
     if application.job_queue and settings.is_calendar_configured:
         interval = settings.reminder_job_interval_seconds
-        first = min(30, max(5, interval // 10))  # first run soon, but not more than interval
+        # first run soon, but not more than interval
+        first = min(30, max(5, interval // 10))
         application.job_queue.run_repeating(
             check_and_send_reminders,
             interval=timedelta(seconds=interval),
@@ -49,22 +50,23 @@ async def post_init(application: Application) -> None:
 def main() -> None:
     """Start the bot."""
     logger.info("Starting Shift Schedule Bot...")
-    
+
     # Load settings
     try:
         settings = get_settings()
     except Exception as e:
         logger.error(f"Failed to load settings: {e}")
-        logger.error("Please make sure you have a .env file with required configuration.")
+        logger.error(
+            "Please make sure you have a .env file with required configuration.")
         sys.exit(1)
-    
+
     # Check calendar configuration
     if not settings.is_calendar_configured:
         logger.warning(
             "Google Calendar not configured. "
             "Run 'python -m src.auth_setup' to set up authorization."
         )
-    
+
     # Create application
     application = (
         Application.builder()
@@ -72,10 +74,10 @@ def main() -> None:
         .post_init(post_init)
         .build()
     )
-    
+
     # Setup handlers
     setup_handlers(application)
-    
+
     # Run the bot
     logger.info(f"Bot is running for user IDs: {settings.telegram_user_ids}")
     logger.info("Press Ctrl+C to stop.")

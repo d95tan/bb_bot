@@ -321,12 +321,12 @@ class GridConfig:
     def header_height_pct(self) -> float:
         """Height of header region as percentage of image height."""
         return self._config.get("header_height_pct", 0.35)
-    
+
     @property
     def crop_top_pct(self) -> float:
         """Percentage of cell height to remove from top."""
         return self._config.get("crop_top_pct", 0.05)
-    
+
     @property
     def crop_bottom_pct(self) -> float:
         """Percentage of cell height to remove from bottom."""

@@ -137,7 +137,8 @@ def get_medication_window(shift_type: str) -> Optional[tuple[time, time]]:
     Prefer get_reminder_time(shift_date, shift_info) with shift_groups instead.
     """
     shift_config = get_shift_config()
-    shift_info = shift_config.get_shift_by_code(shift_type) if shift_config.code_mappings else None
+    shift_info = shift_config.get_shift_by_code(
+        shift_type) if shift_config.code_mappings else None
     if not shift_info:
         return None
     if shift_info.get("all_day"):

@@ -21,9 +21,9 @@ def main() -> None:
     print("Google Calendar Authorization Setup")
     print("=" * 60)
     print()
-    
+
     settings = get_settings()
-    
+
     # Create OAuth flow
     flow = InstalledAppFlow.from_client_config(
         {
@@ -37,12 +37,12 @@ def main() -> None:
         },
         scopes=SCOPES,
     )
-    
+
     # Run local server for OAuth callback
     print("A browser window will open for Google authorization.")
     print("Please sign in and grant access to your calendar.")
     print()
-    
+
     try:
         credentials = flow.run_local_server(port=8080)
     except Exception:
@@ -55,7 +55,7 @@ def main() -> None:
         code = input("Enter the authorization code: ").strip()
         flow.fetch_token(code=code)
         credentials = flow.credentials
-    
+
     print()
     print("=" * 60)
     print("SUCCESS! Add this to your .env file:")
