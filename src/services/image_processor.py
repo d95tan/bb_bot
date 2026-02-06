@@ -10,11 +10,9 @@ from calendar import monthrange
 from datetime import date
 from io import BytesIO
 from typing import Optional
-from typing_extensions import deprecated
 
 from PIL import Image
 import pytesseract
-from pytesseract import Output
 
 from pathlib import Path
 
@@ -43,50 +41,50 @@ MONTHS = {
 def _adjust_rest_days_post_night(schedule: list[dict]) -> list[dict]:
     """
     Adjust rest days that follow night shifts.
-    
+
     If a rest day (RD, DO) comes after a night shift, it should not be all-day.
     Instead, it should start when the night shift ends (e.g., 08:00).
-    
+
     Args:
         schedule: List of schedule entries sorted by date
-        
+
     Returns:
         Modified schedule with adjusted rest days
     """
     if len(schedule) < 2:
         return schedule
-    
+
     # Sort by date to ensure proper ordering
     schedule = sorted(schedule, key=lambda x: x["date"])
-    
+
     # Rest day codes that should be adjusted
     rest_day_codes = {"RD", "DO"}
-    
+
     for i in range(1, len(schedule)):
         current = schedule[i]
         previous = schedule[i - 1]
-        
+
         # Check if current day is a rest day
         current_code = current.get("shift", "").upper()
         if current_code not in rest_day_codes:
             continue
-            
+
         # Check if previous day was a night shift (same_day = False)
         prev_info = previous.get("shift_info", {})
         is_night_shift = not prev_info.get("same_day", True)
-        
+
         if not is_night_shift:
             continue
-            
+
         # Get the end time of the night shift (when rest day should start)
         night_end_time = prev_info.get("end", "08:00")
-        
+
         # Modify the rest day to start at night shift end time
         logger.info(
             f"Adjusting {current_code} on {current['date']} to start at {night_end_time} "
             f"(after night shift on {previous['date']})"
         )
-        
+
         # Update shift_info to be a timed event instead of all-day
         current["shift_info"] = {
             **current["shift_info"],
@@ -96,7 +94,7 @@ def _adjust_rest_days_post_night(schedule: list[dict]) -> list[dict]:
             "same_day": True,
             "description": f"{current['shift_info'].get('description', 'Rest Day')} (after night shift)",
         }
-    
+
     return schedule
 
 
@@ -576,7 +574,7 @@ OCR_SUBSTITUTIONS = [
 def _apply_prefix_normalization(code: str) -> str:
     """
     Normalize common prefix confusions.
-    
+
     - DO → D0 (letter O to zero)
     - EO → E0 (letter O to zero)
     - BO → D0 (B misread as D)
@@ -584,26 +582,26 @@ def _apply_prefix_normalization(code: str) -> str:
     """
     if len(code) <= 2:
         return code
-    
+
     prefix = code[:2]
     rest = code[2:]
-    
+
     if prefix in ("DO", "EO"):
         return prefix[0] + "0" + rest
     if prefix in ("BO", "B0"):
         return "D0" + rest
-    
+
     return code
 
 
 def _find_ocr_candidates(code: str, known_codes: set[str]) -> set[str]:
     """
     Find all valid shift codes that could match the OCR'd text.
-    
+
     Tries various character substitutions based on common OCR confusions.
     """
     candidates = set()
-    
+
     # Try replacing all occurrences of a character
     for old_char, new_char in OCR_SUBSTITUTIONS:
         if old_char in code:
@@ -611,7 +609,7 @@ def _find_ocr_candidates(code: str, known_codes: set[str]) -> set[str]:
             candidate = _apply_prefix_normalization(candidate)
             if candidate in known_codes:
                 candidates.add(candidate)
-    
+
     # Try substitutions at each position individually
     for i, char in enumerate(code):
         for old_char, new_char in OCR_SUBSTITUTIONS:
@@ -620,21 +618,21 @@ def _find_ocr_candidates(code: str, known_codes: set[str]) -> set[str]:
                 candidate = _apply_prefix_normalization(candidate)
                 if candidate in known_codes:
                     candidates.add(candidate)
-    
+
     return candidates
 
 
 def _select_best_candidate(code: str, candidates: set[str]) -> str:
     """
     Select the best candidate from multiple OCR matches.
-    
+
     Returns first alphabetically for deterministic results.
     """
     if len(candidates) == 1:
         result = candidates.pop()
         logger.debug(f"OCR correction: {code} -> {result}")
         return result
-    
+
     # Multiple candidates - pick first alphabetically
     result = sorted(candidates)[0]
     logger.warning(
@@ -703,71 +701,9 @@ def get_dominant_color(image: Image.Image) -> tuple[int, int, int]:
     return (avg_r, avg_g, avg_b)
 
 
-def validate_image(image_data: bytes) -> tuple[bool, Optional[str]]:
-    """
-    Validate that the image is suitable for processing.
-    """
-    if len(image_data) < 1000:
-        return False, "Image file is too small. Please send a clearer screenshot."
-
-    if len(image_data) > 20 * 1024 * 1024:  # 20MB
-        return False, "Image file is too large. Please compress the image."
-
-    # Check for common image headers
-    png_header = b'\x89PNG'
-    jpeg_header = b'\xff\xd8\xff'
-
-    if not (image_data[:4] == png_header or image_data[:3] == jpeg_header):
-        return False, "Unsupported image format. Please send a PNG or JPEG."
-
-    return True, None
-
-
 def _scale_image(image: Image.Image) -> Image.Image:
     """
     Scale an image up for better OCR accuracy.
     """
     scale_factor = 2
     return image.resize((image.width * scale_factor, image.height * scale_factor), Image.Resampling.LANCZOS)
-
-
-@deprecated("Use grid_config.grid_top_pct instead")
-def find_grid_top(image: Image.Image) -> Optional[int]:
-    """
-    Find the top of the schedule grid by locating the day names (Mon, Tue, etc).
-    Returns the Y-coordinate of the bottom of the day headers.
-    """
-    # Crop top half of image to search for headers
-    width, height = image.size
-    search_area = image.crop((0, 0, width, int(height * 0.5)))
-
-    try:
-        data = pytesseract.image_to_data(search_area, output_type=Output.DICT)
-
-        day_names = {"mon", "tue", "wed", "thu", "fri", "sat", "sun",
-                     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-
-        found_bottoms = []
-
-        n_boxes = len(data['text'])
-        for i in range(n_boxes):
-            text = data['text'][i].lower().strip()
-            # Remove punctuation
-            text = re.sub(r'[^\w\s]', '', text)
-
-            if text in day_names:
-                # Found a day name
-                (_, y, _, h) = (data['left'][i], data['top']
-                                [i], data['width'][i], data['height'][i])
-                found_bottoms.append(y + h)
-
-        if found_bottoms:
-            # Return the average bottom + some padding
-            avg_bottom = sum(found_bottoms) // len(found_bottoms)
-            padding = int(height * 0.01)  # 1% padding
-            return avg_bottom + padding
-
-    except Exception as e:
-        logger.error(f"Error finding grid top: {e}")
-
-    return None
