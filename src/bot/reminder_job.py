@@ -27,8 +27,12 @@ def _event_to_shift_info(event: dict, tz_str: str) -> tuple[date, dict] | None:
     end_data = event.get("end", {})
 
     if "date" in start_data:
-        # All-day event -> no reminder
-        return None
+        # All-day event (off day): reminder at fixed time if reminder_at is set in config
+        try:
+            shift_date = date.fromisoformat(start_data["date"])
+        except (ValueError, TypeError):
+            return None
+        return (shift_date, {"all_day": True})
 
     date_time_str = start_data.get("dateTime")
     end_time_str = end_data.get("dateTime")

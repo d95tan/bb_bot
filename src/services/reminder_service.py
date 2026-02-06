@@ -107,9 +107,18 @@ def get_reminder_minutes(shift_info: dict) -> Optional[int]:
 def get_reminder_time(shift_date: date, shift_info: dict) -> Optional[datetime]:
     """
     Compute the datetime when the first reminder should be sent for this shift.
-    Uses shift_groups.reminder_minutes from shifts.yaml.
-    Returns None if no reminder (off group or reminder_minutes null).
+    Uses shift_groups: reminder_minutes for timed shifts, reminder_at for off days.
+    Returns None if no reminder.
     """
+    if shift_info.get("all_day"):
+        # Off day: use fixed time from shift_groups.off.reminder_at
+        at_str = get_shift_config().get_off_day_reminder_at()
+        if not at_str:
+            return None
+        parts = at_str.split(":")
+        hour = int(parts[0]) if parts else 0
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        return datetime.combine(shift_date, time(hour, minute))
     minutes = get_reminder_minutes(shift_info)
     if minutes is None:
         return None

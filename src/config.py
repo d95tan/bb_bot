@@ -240,6 +240,15 @@ class ShiftConfig:
         val = group.get("reminder_minutes")
         return int(val) if val is not None else None
 
+    def get_off_day_reminder_at(self) -> Optional[str]:
+        """
+        Fixed time (HH:MM) to send reminder on off days (all_day events).
+        From shift_groups.off.reminder_at. None = no reminder on off days.
+        """
+        group = self._shift_groups.get("off", {})
+        val = group.get("reminder_at")
+        return str(val) if val is not None else None
+
     def get_all_codes(self) -> list[str]:
         """Get list of all known shift codes."""
         return list(self._code_mappings.keys())

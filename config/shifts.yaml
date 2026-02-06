@@ -16,7 +16,8 @@ shift_groups:
     reminder_minutes: -60     # remind 1 hour before shift starts
     start_from: "19:00"       # 7pm onwards
   off:
-    reminder_minutes: null    # no reminder (MC, AL, HL, FCL, RD, DO, PH, etc.)
+    reminder_minutes: null    # no shift start; use reminder_at for off days
+    reminder_at: "09:30"     # fixed time to remind on off days (RD, DO, AL, etc.). Set to null to disable.
 
 # Primary: Direct code-to-shift mappings
 # Each code maps to shift timing
