@@ -64,7 +64,7 @@ def main() -> None:
     if not settings.is_calendar_configured:
         logger.warning(
             "Google Calendar not configured. "
-            "Run 'python -m src.auth_setup' to set up authorization."
+            "Run 'telebot-auth' (or python -m scripts.auth_setup) to set up authorization."
         )
 
     # Create application
