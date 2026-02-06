@@ -83,10 +83,10 @@ Optional: To save debug images
 - **Host Path**: `/mnt/pool/dataset/bb_bot/debug`
 - **Mount Path**: `/app/debug`
 
-**Reminder acknowledgments** (choose one):
+**Reminder acknowledgments:**
 
-- **Redis (recommended for TrueNAS / multi-instance):** Install Redis (e.g. as a TrueNAS app or in a container), then set `REDIS_URL` in the bot’s environment, e.g. `redis://redis-host:6379/0`. The bot will use Redis for reminder state so it survives restarts and is shared across multiple bot instances.
-- **File (single instance):** If `REDIS_URL` is not set, the bot uses `data/reminder_acknowledgments.json`. Mount a volume for persistence, e.g. Host `/mnt/pool/dataset/bb_bot/data` → `/app/data`. Multiple instances do not share the file.
+- **With docker-compose:** Redis runs in the same stack (`redis` service). The bot is given `REDIS_URL=redis://redis:6379/0` automatically. Reminder state is stored in the `redis_data` volume and survives restarts.
+- **Without compose (e.g. TrueNAS custom app):** Either install Redis separately and set `REDIS_URL` (e.g. `redis://redis-host:6379/0`), or leave `REDIS_URL` unset to use file-based storage (`data/reminder_acknowledgments.json`); then mount a volume for `/app/data` if you want persistence.
 
 ## 4. Troubleshooting
 

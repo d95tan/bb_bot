@@ -151,6 +151,49 @@ telebot
 telebot-dev
 ```
 
+## Local development / testing
+
+Two ways to run and test on your machine.
+
+### Option A: Docker Compose (simplest)
+
+Runs the bot and Redis together; no need to install Python or Tesseract locally for integration testing.
+
+1. **Prepare `.env`** (copy from `env.example`, fill in `TELEGRAM_BOT_TOKEN`, `TELEGRAM_USER_IDS`, Google credentials). You still need to run `telebot-auth` once (e.g. in a local venv) to get `GOOGLE_REFRESH_TOKEN`, then put it in `.env`.
+2. **Start the stack:**
+   ```bash
+   docker compose up -d
+   ```
+   This starts Redis and the bot. The bot uses `REDIS_URL=redis://redis:6379/0` automatically.
+3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f bb_bot`.
+4. **Stop:** `docker compose down`. Add `-v` to remove the Redis volume and lose reminder state.
+
+### Option B: Run the bot locally (venv)
+
+Useful for debugging, OCR tweaks, or running tests.
+
+1. **Prerequisites:** Python 3.11+, Tesseract installed, venv created, `pip install -e ".[dev]"`.
+2. **Redis (optional):** To test reminder + Redis locally, start Redis:
+   ```bash
+   docker run -d -p 6379:6379 --name redis redis:7-alpine
+   ```
+   Then in `.env` set `REDIS_URL=redis://localhost:6379/0`. If you omit `REDIS_URL`, the bot uses file-based reminder storage under `data/`.
+3. **Google token:** Run `telebot-auth` once and set `GOOGLE_REFRESH_TOKEN` in `.env`.
+4. **Run the bot:**
+   ```bash
+   telebot          # or: python -m src.main
+   # or with reload:
+   telebot-dev
+   ```
+5. **Test:** Send a schedule image to the bot in Telegram. For OCR-only tests without the bot: `python scripts/test_ocr.py sample_images/01_2026.jpg` (run from repo root with `PYTHONPATH=.` or install the package).
+
+### Quick checklist
+
+- [ ] `.env` filled (bot token, user IDs, Google client id/secret, refresh token)
+- [ ] `telebot-auth` run and refresh token in `.env`
+- [ ] Tesseract installed (for local run) or use Docker
+- [ ] Redis: use Docker Compose, or `docker run redis` + `REDIS_URL`, or leave unset for file storage
+
 ## Usage
 
 ### Commands

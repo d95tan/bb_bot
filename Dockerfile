@@ -21,8 +21,10 @@ COPY pyproject.toml ./
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Install Python dependencies
-RUN pip install --no-cache-dir .
+# Install Python dependencies (optionally dev deps for watchfiles hot-reload)
+ARG INSTALL_DEV=false
+RUN pip install --no-cache-dir . && \
+    if [ "$INSTALL_DEV" = "true" ]; then pip install --no-cache-dir .[dev]; fi
 
 # Create directory for debug output (optional)
 RUN mkdir -p /app/debug
