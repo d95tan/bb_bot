@@ -361,6 +361,11 @@ def _build_schedule_entry(
         shift_info = shift_config.get_shift(shift_code, dominant_color)
 
         if shift_info:
+            if shift_info.get("skip", False):
+                logger.debug(
+                    f"Skipping cell OCR '{shift_code}' on {year}-{month:02d}-{day:02d} (resolved shift has skip: true in shifts.yaml)"
+                )
+                return None
             return {
                 "date": date(year, month, day),
                 "shift": shift_code,
@@ -384,6 +389,11 @@ def _build_schedule_entry(
         # OCR failed - try color-only fallback
         shift_info = shift_config.get_shift_by_color(dominant_color)
         if shift_info:
+            if shift_info.get("skip", False):
+                logger.debug(
+                    f"Skipping cell RGB{dominant_color} on {year}-{month:02d}-{day:02d} (color has skip: true in shifts.yaml)"
+                )
+                return None
             color_name = shift_info.get("name", "?")
             logger.info(
                 f"Color fallback: detected {color_name} by color RGB{dominant_color} on {year}-{month:02d}-{day:02d}")
@@ -672,7 +682,7 @@ def get_dominant_color(image: Image.Image) -> tuple[int, int, int]:
     """
     # Resize for faster processing
     small_image = image.resize((50, 50))
-    pixels = list(small_image.getdata())
+    pixels = list(small_image.get_flattened_data())
 
     # Filter out white/near-white and black pixels
     colored_pixels = [
