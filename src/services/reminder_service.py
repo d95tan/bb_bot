@@ -2,7 +2,7 @@
 Shift reminder service.
 
 Sends reminders based on shift groups (AM / PM / Night / Off) defined in shifts.yaml.
-Reminder time = shift start + reminder_minutes (negative = before start).
+Reminder time = shift start + reminder_offset_minutes (negative = before start).
 Reminders continue until acknowledged.
 
 Acknowledgment state: if REDIS_URL is set, uses Redis (shared across instances and
@@ -95,19 +95,19 @@ def get_shift_group(shift_info: dict) -> str:
     return get_shift_config().get_shift_group(shift_info)
 
 
-def get_reminder_minutes(shift_info: dict) -> Optional[int]:
+def get_reminder_offset_minutes(shift_info: dict) -> Optional[int]:
     """
-    Minutes from shift start when to send the first reminder.
-    Positive = after start, negative = before start. None = no reminder (e.g. off).
+    Offset in minutes from shift start when to send the first reminder.
+    Positive = after start, negative = before start. None = use reminder_at if set, else no reminder.
     """
     group = get_shift_group(shift_info)
-    return get_shift_config().get_reminder_minutes(group)
+    return get_shift_config().get_reminder_offset_minutes(group)
 
 
 def get_reminder_time(shift_date: date, shift_info: dict) -> Optional[datetime]:
     """
     Compute the datetime when the first reminder should be sent for this shift.
-    Uses shift_groups: reminder_minutes for timed shifts, reminder_at for off days.
+    Uses shift_groups: reminder_offset_minutes (offset from start) or reminder_at (fixed time).
     Returns None if no reminder.
     """
     if shift_info.get("all_day"):
@@ -119,16 +119,23 @@ def get_reminder_time(shift_date: date, shift_info: dict) -> Optional[datetime]:
         hour = int(parts[0]) if parts else 0
         minute = int(parts[1]) if len(parts) > 1 else 0
         return datetime.combine(shift_date, time(hour, minute))
-    minutes = get_reminder_minutes(shift_info)
-    if minutes is None:
+    minutes = get_reminder_offset_minutes(shift_info)
+    if minutes is not None:
+        start_str = shift_info.get("start", "09:00")
+        parts = start_str.split(":")
+        hour = int(parts[0]) if parts else 0
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        shift_start = datetime.combine(shift_date, time(hour, minute))
+        return shift_start + timedelta(minutes=minutes)
+    # Fallback: fixed reminder_at for this group (e.g. night with reminder_at: "20:00")
+    group = get_shift_group(shift_info)
+    at_str = get_shift_config().get_reminder_at(group)
+    if not at_str:
         return None
-    start_str = shift_info.get("start", "09:00")
-    parts = start_str.split(":")
+    parts = at_str.split(":")
     hour = int(parts[0]) if parts else 0
     minute = int(parts[1]) if len(parts) > 1 else 0
-    shift_start = datetime.combine(shift_date, time(hour, minute))
-    reminder_dt = shift_start + timedelta(minutes=minutes)
-    return reminder_dt
+    return datetime.combine(shift_date, time(hour, minute))
 
 
 def get_medication_window(shift_type: str) -> Optional[tuple[time, time]]:

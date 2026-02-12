@@ -231,13 +231,13 @@ class ShiftConfig:
                     return group_id
         return "off"
 
-    def get_reminder_minutes(self, group_id: str) -> Optional[int]:
+    def get_reminder_offset_minutes(self, group_id: str) -> Optional[int]:
         """
-        Minutes from shift start when to send reminder.
-        Positive = after start, negative = before start. None = no reminder.
+        Offset in minutes from shift start when to send reminder.
+        Positive = after start, negative = before start. None = no offset (use reminder_at if set).
         """
         group = self._shift_groups.get(group_id, {})
-        val = group.get("reminder_minutes")
+        val = group.get("reminder_offset_minutes")
         return int(val) if val is not None else None
 
     def get_off_day_reminder_at(self) -> Optional[str]:
@@ -246,6 +246,15 @@ class ShiftConfig:
         From shift_groups.off.reminder_at. None = no reminder on off days.
         """
         group = self._shift_groups.get("off", {})
+        val = group.get("reminder_at")
+        return str(val) if val is not None else None
+
+    def get_reminder_at(self, group_id: str) -> Optional[str]:
+        """
+        Fixed time (HH:MM) to send reminder for this group, if set.
+        From shift_groups.<group_id>.reminder_at. Use when reminder_offset_minutes is null.
+        """
+        group = self._shift_groups.get(group_id, {})
         val = group.get("reminder_at")
         return str(val) if val is not None else None
 
