@@ -11,8 +11,11 @@
 #   4. Adjust values below until the red rectangle aligns with the calendar grid
 # =============================================================================
 
-# Header region (for month/year detection)
-header_height_pct: 0.35   # Height of header area to scan for month/year (35% from top)
+# Header region (for month/year detection) - same style as grid (left/right/top/bottom pct)
+header_left_pct: 0.25
+header_right_pct: 0.75
+header_top_pct: 0.15
+header_bottom_pct: 0.185   # Bottom of header (35% from top)
 
 # Horizontal boundaries (percentage of image width, 0.0 to 1.0)
 grid_left_pct: 0.02     # Left edge of grid (2% from left)

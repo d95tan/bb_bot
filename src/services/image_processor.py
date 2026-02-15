@@ -11,12 +11,22 @@ from datetime import date
 from io import BytesIO
 from typing import Optional
 
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 import pytesseract
 
 from pathlib import Path
 
-from src.config import get_shift_config, get_settings, get_grid_config, ShiftConfig
+from src.config import get_grid_config, get_shift_config, get_settings, ShiftConfig
+from src.constants import (
+    GRID_BOTTOM,
+    GRID_LEFT,
+    GRID_RIGHT,
+    GRID_TOP,
+    HEADER_BOTTOM,
+    HEADER_LEFT,
+    HEADER_RIGHT,
+    HEADER_TOP,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -121,15 +131,23 @@ def process_schedule_image(image_data: bytes) -> list[dict]:
         image = image.convert("RGB")
 
     # Extract month and year from header
-    month, year = extract_month_year(image)
+    month, year, header_region = extract_month_year(image)
+    settings = get_settings()
+    debug_dir = _setup_debug_dir(year, month) if settings.debug_save_cells else None
+
+    if debug_dir and header_region is not None:
+        header_region.save(debug_dir / "_header.png")
+        logger.debug(f"Saved header crop to {debug_dir / '_header.png'}")
+
     if not month or not year:
         logger.error("Could not extract month/year from image")
+        if debug_dir:
+            _save_debug_overlay_only(image, debug_dir)
         return []
 
     logger.info(f"Detected schedule for {month}/{year}")
 
-    # Extract schedule grid
-    schedule = extract_schedule_grid(image, month, year)
+    schedule = extract_schedule_grid(image, month, year, debug_dir=debug_dir)
 
     # Post-process: adjust rest days that follow night shifts
     schedule = _adjust_rest_days_post_night(schedule)
@@ -139,47 +157,53 @@ def process_schedule_image(image_data: bytes) -> list[dict]:
     return schedule
 
 
-def extract_month_year(image: Image.Image) -> tuple[Optional[int], Optional[int]]:
+def extract_month_year(image: Image.Image) -> tuple[Optional[int], Optional[int], Image.Image]:
     """
     Extract month and year from the header of the schedule image.
 
     The header contains text like "Aug 2025" or "Jul 2025" in a blue pill.
+    Returns (month, year, header_region) so the caller can save the crop to debug.
     """
-    # Crop the header area (top portion of image)
-    grid_config = get_grid_config()
     width, height = image.size
-    header_region = image.crop(
-        (0, 0, width, int(height * grid_config.header_height_pct)))
+    header_bounds = _calculate_header_boundaries(width, height)
+    header_region = image.crop((
+        header_bounds[HEADER_LEFT], header_bounds[HEADER_TOP],
+        header_bounds[HEADER_RIGHT], header_bounds[HEADER_BOTTOM],
+    ))
 
-    # Run OCR on header
-    # Use psm 6 for uniform block of text
-    custom_config = r'--oem 3 --psm 6'
+    # Tesseract works best on dark text on light background; header is white-on-blue.
+    # Invert for OCR (blue -> yellow, white -> black) then run OCR on the inverted crop.
+    header_region = header_region.filter(ImageFilter.EDGE_ENHANCE)
+    header_for_ocr = ImageOps.invert(header_region.convert("RGB"))
+
+    # PSM 7 = single text line (header is "Mar 2026" in the center); PSM 6 assumes a full block.
+    custom_config = r'--oem 3 --psm 7'
     header_text = pytesseract.image_to_string(
-        header_region, config=custom_config)
+        header_for_ocr, config=custom_config)
     logger.debug(f"Header OCR text: {header_text}")
 
-    # Look for month year pattern
-    # Pattern: "Jan 2025", "January 2025", "Aug 2025", etc.
-    # Allow for some noise characters and newlines
     pattern = r"([A-Za-z]+)[\s\.,_-]*(\d{4})"
     match = re.search(pattern, header_text)
 
     if match:
         month_str = match.group(1).lower()
         year = int(match.group(2))
-
-        # Convert month name to number
-        month = MONTHS.get(month_str[:3])  # Use first 3 chars for matching
+        month = MONTHS.get(month_str[:3])
 
         if month:
-            return month, year
+            return month, year, header_region
 
     logger.warning(
         f"Failed to match month/year in header text: '{header_text.strip()}'")
-    return None, None
+    return None, None, header_region
 
 
-def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dict]:
+def extract_schedule_grid(
+    image: Image.Image,
+    month: int,
+    year: int,
+    debug_dir: Optional[Path] = None,
+) -> list[dict]:
     """
     Extract shift data from the calendar grid.
 
@@ -192,23 +216,15 @@ def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dic
     width, height = image.size
     logger.info(f"Image dimensions: {width}x{height}")
 
-    # Setup
-    settings = get_settings()
-    debug_dir = _setup_debug_dir(
-        year, month) if settings.debug_save_cells else None
-
-    # Calculate grid boundaries
     grid_bounds = _calculate_grid_boundaries(width, height)
+    header_bounds = _calculate_header_boundaries(width, height) if debug_dir else None
 
-    # Save debug overlay
     if debug_dir:
         _save_grid_debug_image(
             image,
-            grid_bounds["grid_top"],
-            grid_bounds["grid_bottom"],
-            grid_bounds["grid_left"],
-            grid_bounds["grid_right"],
-            debug_dir,
+            grid_bounds=grid_bounds,
+            debug_dir=debug_dir,
+            header_bounds=header_bounds,
         )
 
     # Calculate cell dimensions
@@ -227,30 +243,67 @@ def extract_schedule_grid(image: Image.Image, month: int, year: int) -> list[dic
     return schedule
 
 
-def _setup_debug_dir(year: int, month: int) -> Path:
-    """Create debug output directory for cell images."""
-    debug_dir = Path("debug") / f"{year}-{month:02d}"
+def _setup_debug_dir(year: Optional[int], month: Optional[int]) -> Path:
+    """Create debug output directory. Use 'unknown' when month/year are missing."""
+    if year is not None and month is not None:
+        subdir = f"{year}-{month:02d}"
+    else:
+        subdir = "unknown"
+    debug_dir = Path("debug") / subdir
     debug_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Debug mode: saving cell images to {debug_dir}")
+    logger.info(f"Debug mode: saving to {debug_dir}")
     return debug_dir
+
+
+def _save_debug_overlay_only(image: Image.Image, debug_dir: Path) -> None:
+    """Save grid and header overlay only (no cell extraction). Used when month/year parse fails."""
+    width, height = image.size
+    grid_bounds = _calculate_grid_boundaries(width, height)
+    header_bounds = _calculate_header_boundaries(width, height)
+    _save_grid_debug_image(
+        image,
+        grid_bounds=grid_bounds,
+        debug_dir=debug_dir,
+        header_bounds=header_bounds,
+    )
 
 
 def _calculate_grid_boundaries(width: int, height: int) -> dict:
     """Calculate grid boundaries from config percentages."""
     grid_config = get_grid_config()
     bounds = {
-        "grid_left": int(width * grid_config.grid_left_pct),
-        "grid_right": int(width * grid_config.grid_right_pct),
-        "grid_top": int(height * grid_config.grid_top_pct),
-        "grid_bottom": int(height * grid_config.grid_bottom_pct),
+        GRID_LEFT: int(width * grid_config.grid_left_pct),
+        GRID_RIGHT: int(width * grid_config.grid_right_pct),
+        GRID_TOP: int(height * grid_config.grid_top_pct),
+        GRID_BOTTOM: int(height * grid_config.grid_bottom_pct),
     }
     logger.info(
-        f"Grid boundaries (pixels): left={bounds['grid_left']}, right={bounds['grid_right']}, "
-        f"top={bounds['grid_top']}, bottom={bounds['grid_bottom']}"
+        f"Grid boundaries (pixels): left={bounds[GRID_LEFT]}, right={bounds[GRID_RIGHT]}, "
+        f"top={bounds[GRID_TOP]}, bottom={bounds[GRID_BOTTOM]}"
     )
     logger.info(
         f"Grid boundaries (percent): left={grid_config.grid_left_pct}, right={grid_config.grid_right_pct}, "
-        f"top={bounds['grid_top']/height:.4f}, bottom={grid_config.grid_bottom_pct}"
+        f"top={bounds[GRID_TOP]/height:.4f}, bottom={grid_config.grid_bottom_pct}"
+    )
+    return bounds
+
+
+def _calculate_header_boundaries(width: int, height: int) -> dict[str, int]:
+    """Calculate header boundaries from config percentages."""
+    header_config = get_grid_config()
+    bounds = {
+        HEADER_LEFT: int(width * header_config.header_left_pct),
+        HEADER_RIGHT: int(width * header_config.header_right_pct),
+        HEADER_TOP: int(height * header_config.header_top_pct),
+        HEADER_BOTTOM: int(height * header_config.header_bottom_pct),
+    }
+    logger.info(
+        f"Header boundaries (pixels): left={bounds[HEADER_LEFT]}, right={bounds[HEADER_RIGHT]}, "
+        f"top={bounds[HEADER_TOP]}, bottom={bounds[HEADER_BOTTOM]}"
+    )
+    logger.info(
+        f"Header boundaries (percent): left={header_config.header_left_pct}, right={header_config.header_right_pct}, "
+        f"top={bounds[HEADER_TOP]/height:.4f}, bottom={header_config.header_bottom_pct}"
     )
     return bounds
 
@@ -258,8 +311,8 @@ def _calculate_grid_boundaries(width: int, height: int) -> dict:
 def _calculate_cell_dimensions(grid_bounds: dict) -> dict:
     """Calculate cell width and height from grid bounds."""
     grid_config = get_grid_config()
-    grid_width = grid_bounds["grid_right"] - grid_bounds["grid_left"]
-    grid_height = grid_bounds["grid_bottom"] - grid_bounds["grid_top"]
+    grid_width = grid_bounds[GRID_RIGHT] - grid_bounds[GRID_LEFT]
+    grid_height = grid_bounds[GRID_BOTTOM] - grid_bounds[GRID_TOP]
     return {
         "col_width": grid_width // grid_config.grid_columns,
         "row_height": grid_height // grid_config.grid_rows,
@@ -330,8 +383,8 @@ def _crop_cell(
     """Crop a single cell from the grid."""
     grid_config = get_grid_config()
 
-    cell_left = grid_bounds["grid_left"] + col * cell_dims["col_width"]
-    cell_top = grid_bounds["grid_top"] + row * cell_dims["row_height"]
+    cell_left = grid_bounds[GRID_LEFT] + col * cell_dims["col_width"]
+    cell_top = grid_bounds[GRID_TOP] + row * cell_dims["row_height"]
     cell_right = cell_left + cell_dims["col_width"]
     cell_height = cell_dims["row_height"]
 
@@ -410,19 +463,31 @@ def _build_schedule_entry(
 
 def _save_grid_debug_image(
     image: Image.Image,
-    grid_top: int,
-    grid_bottom: int,
-    grid_left: int,
-    grid_right: int,
-    debug_dir: Path
+    grid_bounds: dict,
+    debug_dir: Path,
+    header_bounds: Optional[dict] = None,
 ) -> None:
-    """Save a debug image showing the detected grid boundaries."""
+    """Save a debug image showing the detected header and grid boundaries."""
     from PIL import ImageDraw
+
+    grid_left = grid_bounds[GRID_LEFT]
+    grid_right = grid_bounds[GRID_RIGHT]
+    grid_top = grid_bounds[GRID_TOP]
+    grid_bottom = grid_bounds[GRID_BOTTOM]
 
     debug_image = image.copy()
     draw = ImageDraw.Draw(debug_image)
 
-    # Draw grid boundary rectangle
+    if header_bounds:
+        draw.rectangle(
+            [
+                (header_bounds[HEADER_LEFT], header_bounds[HEADER_TOP]),
+                (header_bounds[HEADER_RIGHT], header_bounds[HEADER_BOTTOM]),
+            ],
+            outline="yellow",
+            width=3,
+        )
+
     draw.rectangle(
         [(grid_left, grid_top), (grid_right, grid_bottom)],
         outline="red",
@@ -430,15 +495,12 @@ def _save_grid_debug_image(
     )
 
     grid_config = get_grid_config()
-
-    # Draw column lines
     grid_width = grid_right - grid_left
     col_width = grid_width // grid_config.grid_columns
     for i in range(1, grid_config.grid_columns):
         x = grid_left + i * col_width
         draw.line([(x, grid_top), (x, grid_bottom)], fill="blue", width=2)
 
-    # Draw row lines
     grid_height = grid_bottom - grid_top
     row_height = grid_height // grid_config.grid_rows
     for i in range(1, grid_config.grid_rows):
@@ -468,6 +530,7 @@ def extract_cell_data(cell_image: Image.Image) -> tuple[Optional[str], Optional[
 
     # Scale up the image for better OCR accuracy (cell is already cropped in _crop_cell)
     scaled_image = _scale_image(cell_image)
+    scaled_image = scaled_image.filter(ImageFilter.EDGE_ENHANCE)
 
     # Run OCR to extract shift code
     # Build whitelist from actual shift codes in config
