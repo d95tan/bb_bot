@@ -72,10 +72,10 @@ class Settings(BaseSettings):
         default=None,
         description="Redis URL for shared reminder state (e.g. redis://localhost:6379/0). Enables multi-instance."
     )
-    # How often the reminder job runs (seconds). Default 5 min so we catch reminder time promptly.
+    # How often the reminder job runs (seconds). Default 45 min so we catch reminder time promptly.
     reminder_job_interval_seconds: int = Field(
-        default=300,
-        description="How often to check calendar and send due reminders (default 300 = 5 min). Set lower in dev to test.",
+        default=2700,
+        description="How often to check calendar and send due reminders (default 2700 = 45 min). Set lower in dev to test.",
     )
     # How long (seconds) before we may send the same reminder again if not acknowledged. Default 45 min to avoid spam.
     reminder_sent_slot_ttl_seconds: int = Field(
