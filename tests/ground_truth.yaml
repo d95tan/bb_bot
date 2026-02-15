@@ -1,460 +1,460 @@
 01_2026.jpg:
-- date: '2026-01-01'
-  shift: PH
-- date: '2026-01-02'
-  shift: E0M8
-- date: '2026-01-03'
-  shift: N2111
-- date: '2026-01-04'
-  shift: N2111
-- date: '2026-01-05'
-  shift: DO
-- date: '2026-01-06'
-  shift: E0M8
-- date: '2026-01-07'
-  shift: E0M8
-- date: '2026-01-08'
-  shift: E0M8
-- date: '2026-01-09'
-  shift: D0G8
-- date: '2026-01-10'
-  shift: PH
-- date: '2026-01-11'
-  shift: RD
-- date: '2026-01-12'
-  shift: AL
-- date: '2026-01-13'
-  shift: AL
-- date: '2026-01-14'
-  shift: AL
-- date: '2026-01-15'
-  shift: AL
-- date: '2026-01-16'
-  shift: AL
-- date: '2026-01-17'
-  shift: DO
-- date: '2026-01-18'
-  shift: RD
-- date: '2026-01-19'
-  shift: DO
-- date: '2026-01-20'
-  shift: E0M8
-- date: '2026-01-21'
-  shift: MCU
-- date: '2026-01-22'
-  shift: TR_FD
-- date: '2026-01-23'
-  shift: N2111
-- date: '2026-01-24'
-  shift: N2111
-- date: '2026-01-25'
-  shift: RD
-- date: '2026-01-26'
-  shift: TDE
-- date: '2026-01-27'
-  shift: E0M8
-- date: '2026-01-28'
-  shift: D0G8
-- date: '2026-01-29'
-  shift: DO
-- date: '2026-01-30'
-  shift: E0M8
-- date: '2026-01-31'
-  shift: D0GG
+    - date: "2026-01-01"
+      shift: PH
+    - date: "2026-01-02"
+      shift: E0M8
+    - date: "2026-01-03"
+      shift: N2111
+    - date: "2026-01-04"
+      shift: N2111
+    - date: "2026-01-05"
+      shift: DO
+    - date: "2026-01-06"
+      shift: E0M8
+    - date: "2026-01-07"
+      shift: E0M8
+    - date: "2026-01-08"
+      shift: E0M8
+    - date: "2026-01-09"
+      shift: D0G8
+    - date: "2026-01-10"
+      shift: PH
+    - date: "2026-01-11"
+      shift: RD
+    - date: "2026-01-12"
+      shift: AL
+    - date: "2026-01-13"
+      shift: AL
+    - date: "2026-01-14"
+      shift: AL
+    - date: "2026-01-15"
+      shift: AL
+    - date: "2026-01-16"
+      shift: AL
+    - date: "2026-01-17"
+      shift: DO
+    - date: "2026-01-18"
+      shift: RD
+    - date: "2026-01-19"
+      shift: DO
+    - date: "2026-01-20"
+      shift: E0M8
+    - date: "2026-01-21"
+      shift: MCU
+    - date: "2026-01-22"
+      shift: TR_FD
+    - date: "2026-01-23"
+      shift: N2111
+    - date: "2026-01-24"
+      shift: N2111
+    - date: "2026-01-25"
+      shift: RD
+    - date: "2026-01-26"
+      shift: TDE
+    - date: "2026-01-27"
+      shift: E0M8
+    - date: "2026-01-28"
+      shift: D0G8
+    - date: "2026-01-29"
+      shift: DO
+    - date: "2026-01-30"
+      shift: E0M8
+    - date: "2026-01-31"
+      shift: D0GG
 
 02_2026.jpg:
-- date: '2026-02-01'
-  shift: RD
-- date: '2026-02-02'
-  shift: TDE
-- date: '2026-02-03'
-  shift: D0G9
-- date: '2026-02-04'
-  shift: N2111
-- date: '2026-02-05'
-  shift: N2111
-- date: '2026-02-06'
-  shift: DO
-- date: '2026-02-07'
-  shift: D0GG
-- date: '2026-02-08'
-  shift: RD
+    - date: "2026-02-01"
+      shift: RD
+    - date: "2026-02-02"
+      shift: TDE
+    - date: "2026-02-03"
+      shift: D0G9
+    - date: "2026-02-04"
+      shift: N2111
+    - date: "2026-02-05"
+      shift: N2111
+    - date: "2026-02-06"
+      shift: DO
+    - date: "2026-02-07"
+      shift: D0GG
+    - date: "2026-02-08"
+      shift: RD
 
 07_2025.jpg:
-- date: '2025-07-01'
-  shift: D0G9
-- date: '2025-07-02'
-  shift: DO
-- date: '2025-07-03'
-  shift: E0M8
-- date: '2025-07-04'
-  shift: N2111
-- date: '2025-07-05'
-  shift: N2111
-- date: '2025-07-06'
-  shift: RD
-- date: '2025-07-07'
-  shift: TD
-- date: '2025-07-08'
-  shift: TD
-- date: '2025-07-09'
-  shift: FCL
-- date: '2025-07-10'
-  shift: E0M8
-- date: '2025-07-11'
-  shift: D0G9
-- date: '2025-07-12'
-  shift: DO
-- date: '2025-07-13'
-  shift: RD
-- date: '2025-07-14'
-  shift: DO
-- date: '2025-07-15'
-  shift: PH
-- date: '2025-07-16'
-  shift: D0G8
-- date: '2025-07-17'
-  shift: D0G9
-- date: '2025-07-18'
-  shift: RD
-- date: '2025-07-19'
-  shift: D0GH
-- date: '2025-07-20'
-  shift: E0M8
-- date: '2025-07-21'
-  shift: E0M8
-- date: '2025-07-22'
-  shift: N2111
-- date: '2025-07-23'
-  shift: N2111
-- date: '2025-07-24'
-  shift: RD
-- date: '2025-07-25'
-  shift: DO
-- date: '2025-07-26'
-  shift: E0M8
-- date: '2025-07-27'
-  shift: D0GG
-- date: '2025-07-28'
-  shift: E0M8
-- date: '2025-07-29'
-  shift: TD
-- date: '2025-07-30'
-  shift: TD
-- date: '2025-07-31'
-  shift: DO
+    - date: "2025-07-01"
+      shift: D0G9
+    - date: "2025-07-02"
+      shift: DO
+    - date: "2025-07-03"
+      shift: E0M8
+    - date: "2025-07-04"
+      shift: N2111
+    - date: "2025-07-05"
+      shift: N2111
+    - date: "2025-07-06"
+      shift: RD
+    - date: "2025-07-07"
+      shift: TD
+    - date: "2025-07-08"
+      shift: TD
+    - date: "2025-07-09"
+      shift: FCL
+    - date: "2025-07-10"
+      shift: E0M8
+    - date: "2025-07-11"
+      shift: D0G9
+    - date: "2025-07-12"
+      shift: DO
+    - date: "2025-07-13"
+      shift: RD
+    - date: "2025-07-14"
+      shift: DO
+    - date: "2025-07-15"
+      shift: PH
+    - date: "2025-07-16"
+      shift: D0G8
+    - date: "2025-07-17"
+      shift: D0G9
+    - date: "2025-07-18"
+      shift: RD
+    - date: "2025-07-19"
+      shift: D0GH
+    - date: "2025-07-20"
+      shift: E0M8
+    - date: "2025-07-21"
+      shift: E0M8
+    - date: "2025-07-22"
+      shift: N2111
+    - date: "2025-07-23"
+      shift: N2111
+    - date: "2025-07-24"
+      shift: RD
+    - date: "2025-07-25"
+      shift: DO
+    - date: "2025-07-26"
+      shift: E0M8
+    - date: "2025-07-27"
+      shift: D0GG
+    - date: "2025-07-28"
+      shift: E0M8
+    - date: "2025-07-29"
+      shift: TD
+    - date: "2025-07-30"
+      shift: TD
+    - date: "2025-07-31"
+      shift: DO
 
 08_2025.jpg:
-- date: '2025-08-01'
-  shift: D0G9
-- date: '2025-08-02'
-  shift: TR_FD
-- date: '2025-08-03'
-  shift: RD 
-- date: '2025-08-04'
-  shift: E0M8
-- date: '2025-08-05'
-  shift: N2111
-- date: '2025-08-06'
-  shift: N2111
-- date: '2025-08-07'
-  shift: DO
-- date: '2025-08-08'
-  shift: D0G8
-- date: '2025-08-09'
-  shift: MCU
-- date: '2025-08-10'
-  shift: RD
-- date: '2025-08-11'
-  shift: DO
-- date: '2025-08-12'
-  shift: E0M8
-- date: '2025-08-13'
-  shift: D077S
-- date: '2025-08-14'
-  shift: MC
-- date: '2025-08-15'
-  shift: N2111
-- date: '2025-08-16'
-  shift: N2111
-- date: '2025-08-17'
-  shift: RD
-- date: '2025-08-18'
-  shift: AL
-- date: '2025-08-19'
-  shift: AL
-- date: '2025-08-20'
-  shift: AL
-- date: '2025-08-21'
-  shift: AL
-- date: '2025-08-22'
-  shift: AL
-- date: '2025-08-23'
-  shift: DO
-- date: '2025-08-24'
-  shift: RD
-- date: '2025-08-25'
-  shift: AL
-- date: '2025-08-26'
-  shift: AL
-- date: '2025-08-27'
-  shift: AL
-- date: '2025-08-28'
-  shift: AL
-- date: '2025-08-29'
-  shift: AL
-- date: '2025-08-30'
-  shift: DO
-- date: '2025-08-31'
-  shift: RD
+    - date: "2025-08-01"
+      shift: D0G9
+    - date: "2025-08-02"
+      shift: TR_FD
+    - date: "2025-08-03"
+      shift: RD
+    - date: "2025-08-04"
+      shift: E0M8
+    - date: "2025-08-05"
+      shift: N2111
+    - date: "2025-08-06"
+      shift: N2111
+    - date: "2025-08-07"
+      shift: DO
+    - date: "2025-08-08"
+      shift: D0G8
+    - date: "2025-08-09"
+      shift: MCU
+    - date: "2025-08-10"
+      shift: RD
+    - date: "2025-08-11"
+      shift: DO
+    - date: "2025-08-12"
+      shift: E0M8
+    - date: "2025-08-13"
+      shift: D077S
+    - date: "2025-08-14"
+      shift: MC
+    - date: "2025-08-15"
+      shift: N2111
+    - date: "2025-08-16"
+      shift: N2111
+    - date: "2025-08-17"
+      shift: RD
+    - date: "2025-08-18"
+      shift: AL
+    - date: "2025-08-19"
+      shift: AL
+    - date: "2025-08-20"
+      shift: AL
+    - date: "2025-08-21"
+      shift: AL
+    - date: "2025-08-22"
+      shift: AL
+    - date: "2025-08-23"
+      shift: DO
+    - date: "2025-08-24"
+      shift: RD
+    - date: "2025-08-25"
+      shift: AL
+    - date: "2025-08-26"
+      shift: AL
+    - date: "2025-08-27"
+      shift: AL
+    - date: "2025-08-28"
+      shift: AL
+    - date: "2025-08-29"
+      shift: AL
+    - date: "2025-08-30"
+      shift: DO
+    - date: "2025-08-31"
+      shift: RD
 
 09_2025.jpg:
-- date: '2025-09-01'
-  shift: MC
-- date: '2025-09-02'
-  shift: D0G8
-- date: '2025-09-03'
-  shift: DO
-- date: '2025-09-04'
-  shift: N2111
-- date: '2025-09-05'
-  shift: N2111
-- date: '2025-09-06'
-  shift: RD
-- date: '2025-09-07'
-  shift: E0M8
-- date: '2025-09-08'
-  shift: D0GH
-- date: '2025-09-09'
-  shift: DO
-- date: '2025-09-10'
-  shift: E13H
-- date: '2025-09-11'
-  shift: D0G9
-- date: '2025-09-12'
-  shift: D0G9
-- date: '2025-09-13'
-  shift: D0GG
-- date: '2025-09-14'
-  shift: RD
-- date: '2025-09-15'
-  shift: N2111
-- date: '2025-09-16'
-  shift: N2111
-- date: '2025-09-17'
-  shift: PH
-- date: '2025-09-18'
-  shift: E13H
-- date: '2025-09-19'
-  shift: D077S
-- date: '2025-09-20'
-  shift: DO
-- date: '2025-09-21'
-  shift: RD
-- date: '2025-09-22'
-  shift: AL
-- date: '2025-09-23'
-  shift: AL
-- date: '2025-09-24'
-  shift: AL
-- date: '2025-09-25'
-  shift: AL
-- date: '2025-09-26'
-  shift: AL
-- date: '2025-09-27'
-  shift: DO
-- date: '2025-09-28'
-  shift: RD
-- date: '2025-09-29'
-  shift: E0M8
-- date: '2025-09-30'
-  shift: E0M8
+    - date: "2025-09-01"
+      shift: MC
+    - date: "2025-09-02"
+      shift: D0G8
+    - date: "2025-09-03"
+      shift: DO
+    - date: "2025-09-04"
+      shift: N2111
+    - date: "2025-09-05"
+      shift: N2111
+    - date: "2025-09-06"
+      shift: RD
+    - date: "2025-09-07"
+      shift: E0M8
+    - date: "2025-09-08"
+      shift: D0GH
+    - date: "2025-09-09"
+      shift: DO
+    - date: "2025-09-10"
+      shift: E13H
+    - date: "2025-09-11"
+      shift: D0G9
+    - date: "2025-09-12"
+      shift: D0G9
+    - date: "2025-09-13"
+      shift: D0GG
+    - date: "2025-09-14"
+      shift: RD
+    - date: "2025-09-15"
+      shift: N2111
+    - date: "2025-09-16"
+      shift: N2111
+    - date: "2025-09-17"
+      shift: PH
+    - date: "2025-09-18"
+      shift: E13H
+    - date: "2025-09-19"
+      shift: D077S
+    - date: "2025-09-20"
+      shift: DO
+    - date: "2025-09-21"
+      shift: RD
+    - date: "2025-09-22"
+      shift: AL
+    - date: "2025-09-23"
+      shift: AL
+    - date: "2025-09-24"
+      shift: AL
+    - date: "2025-09-25"
+      shift: AL
+    - date: "2025-09-26"
+      shift: AL
+    - date: "2025-09-27"
+      shift: DO
+    - date: "2025-09-28"
+      shift: RD
+    - date: "2025-09-29"
+      shift: E0M8
+    - date: "2025-09-30"
+      shift: E0M8
 
 10_2025.jpg:
-- date: '2025-10-01'
-  shift: TDE
-- date: '2025-10-02'
-  shift: TDE
-- date: '2025-10-03'
-  shift: DO
-- date: '2025-10-04'
-  shift: MC
-- date: '2025-10-05'
-  shift: RD
-- date: '2025-10-06'
-  shift: DO
-- date: '2025-10-07'
-  shift: E0M8
-- date: '2025-10-08'
-  shift: D077S
-- date: '2025-10-09'
-  shift: D0G8
-- date: '2025-10-10'
-  shift: N2111
-- date: '2025-10-11'
-  shift: N2111
-- date: '2025-10-12'
-  shift: RD
-- date: '2025-10-13'
-  shift: TDE
-- date: '2025-10-14'
-  shift: DO
-- date: '2025-10-15'
-  shift: E0M8
-- date: '2025-10-16'
-  shift: N2111
-- date: '2025-10-17'
-  shift: N2111
-- date: '2025-10-18'
-  shift: RD
-- date: '2025-10-19'
-  shift: E0M8
-- date: '2025-10-20'
-  shift: D0GG
-- date: '2025-10-21'
-  shift: D0G9
-- date: '2025-10-22'
-  shift: D0G8
-- date: '2025-10-23'
-  shift: D0G9
-- date: '2025-10-24'
-  shift: DO
-- date: '2025-10-25'
-  shift: RD
-- date: '2025-10-26'
-  shift: E0M8
-- date: '2025-10-27'
-  shift: D0G9
-- date: '2025-10-28'
-  shift: D0GH
-- date: '2025-10-29'
-  shift: MC
-- date: '2025-10-30'
-  shift: N2111
-- date: '2025-10-31'
-  shift: N2111
+    - date: "2025-10-01"
+      shift: TDE
+    - date: "2025-10-02"
+      shift: TDE
+    - date: "2025-10-03"
+      shift: DO
+    - date: "2025-10-04"
+      shift: MC
+    - date: "2025-10-05"
+      shift: RD
+    - date: "2025-10-06"
+      shift: DO
+    - date: "2025-10-07"
+      shift: E0M8
+    - date: "2025-10-08"
+      shift: D077S
+    - date: "2025-10-09"
+      shift: D0G8
+    - date: "2025-10-10"
+      shift: N2111
+    - date: "2025-10-11"
+      shift: N2111
+    - date: "2025-10-12"
+      shift: RD
+    - date: "2025-10-13"
+      shift: TDE
+    - date: "2025-10-14"
+      shift: DO
+    - date: "2025-10-15"
+      shift: E0M8
+    - date: "2025-10-16"
+      shift: N2111
+    - date: "2025-10-17"
+      shift: N2111
+    - date: "2025-10-18"
+      shift: RD
+    - date: "2025-10-19"
+      shift: E0M8
+    - date: "2025-10-20"
+      shift: D0GG
+    - date: "2025-10-21"
+      shift: D0G9
+    - date: "2025-10-22"
+      shift: D0G8
+    - date: "2025-10-23"
+      shift: D0G9
+    - date: "2025-10-24"
+      shift: DO
+    - date: "2025-10-25"
+      shift: RD
+    - date: "2025-10-26"
+      shift: E0M8
+    - date: "2025-10-27"
+      shift: D0G9
+    - date: "2025-10-28"
+      shift: D0GH
+    - date: "2025-10-29"
+      shift: MC
+    - date: "2025-10-30"
+      shift: N2111
+    - date: "2025-10-31"
+      shift: N2111
 11_2025.jpg:
-- date: '2025-11-01'
-  shift: DO
-- date: '2025-11-02'
-  shift: RD
-- date: '2025-11-03'
-  shift: HL
-- date: '2025-11-04'
-  shift: HL
-- date: '2025-11-05'
-  shift: HL
-- date: '2025-11-06'
-  shift: HL
-- date: '2025-11-07'
-  shift: HL
-- date: '2025-11-08'
-  shift: DO
-- date: '2025-11-09'
-  shift: RD
-- date: '2025-11-10'
-  shift: E0M8
-- date: '2025-11-11'
-  shift: N2111
-- date: '2025-11-12'
-  shift: N2111
-- date: '2025-11-13'
-  shift: DO
-- date: '2025-11-14'
-  shift: RD
-- date: '2025-11-15'
-  shift: E13H
-- date: '2025-11-16'
-  shift: D0GG
-- date: '2025-11-17'
-  shift: MC
-- date: '2025-11-18'
-  shift: D0G9
-- date: '2025-11-19'
-  shift: DO
-- date: '2025-11-20'
-  shift: FCL
-- date: '2025-11-21'
-  shift: PH
-- date: '2025-11-22'
-  shift: RD
-- date: '2025-11-23'
-  shift: N2111
-- date: '2025-11-24'
-  shift: N2111
-- date: '2025-11-25'
-  shift: DO
-- date: '2025-11-26'
-  shift: TDE
-- date: '2025-11-27'
-  shift: RD
-- date: '2025-11-28'
-  shift: D0G9
-- date: '2025-11-29'
-  shift: E0M8
-- date: '2025-11-30'
-  shift: D077S
+    - date: "2025-11-01"
+      shift: DO
+    - date: "2025-11-02"
+      shift: RD
+    - date: "2025-11-03"
+      shift: HL
+    - date: "2025-11-04"
+      shift: HL
+    - date: "2025-11-05"
+      shift: HL
+    - date: "2025-11-06"
+      shift: HL
+    - date: "2025-11-07"
+      shift: HL
+    - date: "2025-11-08"
+      shift: DO
+    - date: "2025-11-09"
+      shift: RD
+    - date: "2025-11-10"
+      shift: E0M8
+    - date: "2025-11-11"
+      shift: N2111
+    - date: "2025-11-12"
+      shift: N2111
+    - date: "2025-11-13"
+      shift: DO
+    - date: "2025-11-14"
+      shift: RD
+    - date: "2025-11-15"
+      shift: E13H
+    - date: "2025-11-16"
+      shift: D0GG
+    - date: "2025-11-17"
+      shift: MC
+    - date: "2025-11-18"
+      shift: D0G9
+    - date: "2025-11-19"
+      shift: DO
+    - date: "2025-11-20"
+      shift: FCL
+    - date: "2025-11-21"
+      shift: PH
+    - date: "2025-11-22"
+      shift: RD
+    - date: "2025-11-23"
+      shift: N2111
+    - date: "2025-11-24"
+      shift: N2111
+    - date: "2025-11-25"
+      shift: DO
+    - date: "2025-11-26"
+      shift: TDE
+    - date: "2025-11-27"
+      shift: RD
+    - date: "2025-11-28"
+      shift: D0G9
+    - date: "2025-11-29"
+      shift: E0M8
+    - date: "2025-11-30"
+      shift: D077S
 
 12_2025.jpg:
-- date: '2025-12-01'
-  shift: AL
-- date: '2025-12-02'
-  shift: AL
-- date: '2025-12-03'
-  shift: AL
-- date: '2025-12-04'
-  shift: AL
-- date: '2025-12-05'
-  shift: AL
-- date: '2025-12-06'
-  shift: DO
-- date: '2025-12-07'
-  shift: RD
-- date: '2025-12-08'
-  shift: DO
-- date: '2025-12-09'
-  shift: E0M8
-- date: '2025-12-10'
-  shift: D077S
-- date: '2025-12-11'
-  shift: N2111
-- date: '2025-12-12'
-  shift: N2111
-- date: '2025-12-13'
-  shift: RD
-- date: '2025-12-14'
-  shift: E0M8
-- date: '2025-12-15'
-  shift: D0G8
-- date: '2025-12-16'
-  shift: DO
-- date: '2025-12-17'
-  shift: N2111
-- date: '2025-12-18'
-  shift: N2111
-- date: '2025-12-19'
-  shift: RD
-- date: '2025-12-20'
-  shift: E0M8
-- date: '2025-12-21'
-  shift: E0M8
-- date: '2025-12-22'
-  shift: D0GG
-- date: '2025-12-23'
-  shift: DO
-- date: '2025-12-24'
-  shift: N2111
-- date: '2025-12-25'
-  shift: N2111
-- date: '2025-12-26'
-  shift: RD
-- date: '2025-12-27'
-  shift: B0ILU
-- date: '2025-12-28'
-  shift: E0M8
-- date: '2025-12-29'
-  shift: D0GG
-- date: '2025-12-30'
-  shift: DO
-- date: '2025-12-31'
-  shift: RD
+    - date: "2025-12-01"
+      shift: AL
+    - date: "2025-12-02"
+      shift: AL
+    - date: "2025-12-03"
+      shift: AL
+    - date: "2025-12-04"
+      shift: AL
+    - date: "2025-12-05"
+      shift: AL
+    - date: "2025-12-06"
+      shift: DO
+    - date: "2025-12-07"
+      shift: RD
+    - date: "2025-12-08"
+      shift: DO
+    - date: "2025-12-09"
+      shift: E0M8
+    - date: "2025-12-10"
+      shift: D077S
+    - date: "2025-12-11"
+      shift: N2111
+    - date: "2025-12-12"
+      shift: N2111
+    - date: "2025-12-13"
+      shift: RD
+    - date: "2025-12-14"
+      shift: E0M8
+    - date: "2025-12-15"
+      shift: D0G8
+    - date: "2025-12-16"
+      shift: DO
+    - date: "2025-12-17"
+      shift: N2111
+    - date: "2025-12-18"
+      shift: N2111
+    - date: "2025-12-19"
+      shift: RD
+    - date: "2025-12-20"
+      shift: E0M8
+    - date: "2025-12-21"
+      shift: E0M8
+    - date: "2025-12-22"
+      shift: D0GG
+    - date: "2025-12-23"
+      shift: DO
+    - date: "2025-12-24"
+      shift: N2111
+    - date: "2025-12-25"
+      shift: N2111
+    - date: "2025-12-26"
+      shift: RD
+    - date: "2025-12-27"
+      shift: B0ILU
+    - date: "2025-12-28"
+      shift: E0M8
+    - date: "2025-12-29"
+      shift: D0GG
+    - date: "2025-12-30"
+      shift: DO
+    - date: "2025-12-31"
+      shift: RD

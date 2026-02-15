@@ -1,4 +1,7 @@
-"""Shared constants (e.g. dict keys) used across config and services."""
+"""Application-wide constants."""
+
+# Reminder service (Redis/file)
+REMINDER_ACK_TTL_SECONDS = 48 * 3600  # 48h so acknowledgment keys expire
 
 # Bound keys for header and grid dicts (image_processor, config)
 HEADER_LEFT = "header_left"

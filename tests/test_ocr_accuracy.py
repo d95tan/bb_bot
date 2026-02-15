@@ -76,7 +76,8 @@ def test_ocr_accuracy_threshold(
     Skips if ground truth or sample images are missing.
     """
     if ground_truth is None:
-        pytest.skip("ground_truth.yaml missing or empty; add expected shifts to run this test")
+        pytest.skip(
+            "ground_truth.yaml missing or empty; add expected shifts to run this test")
 
     if not SAMPLE_IMAGES_DIR.exists():
         pytest.skip("sample_images/ directory not found")

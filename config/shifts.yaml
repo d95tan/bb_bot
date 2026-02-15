@@ -1,6 +1,26 @@
 # Shift Configuration
 # Two-tier lookup: code_mappings (primary) -> color_fallbacks (secondary)
 
+# Shift groups for reminders: AM / PM / Night / Off
+# Reminder: reminder_offset_minutes = offset from shift start (+ after, - before); or reminder_at = fixed HH:MM
+# Classification: off = all_day; else by shift start time vs boundaries below
+shift_groups:
+  am:
+    reminder_offset_minutes: 30   # remind 30 min after shift starts
+    start_before: "12:00"         # shift starts before noon
+  pm:
+    reminder_offset_minutes: -60  # remind 60 min before shift starts
+    start_from: "12:00"
+    start_before: "19:00"         # noon up to (but not including) 7pm
+  night:
+    # Use reminder_offset_minutes (offset from shift start) or reminder_at (fixed time; set offset to null)
+    reminder_offset_minutes: -60 # remind 1 hour before shift starts
+    # reminder_at: "20:00"       # or fixed time, e.g. 8pm on night-shift days
+    start_from: "19:00"          # 7pm onwards
+  off:
+    reminder_offset_minutes: null # no shift start; use reminder_at for off days
+    reminder_at: "09:30"         # fixed time to remind on off days (RD, DO, AL, etc.). Set to null to disable.
+
 # Primary: Direct code-to-shift mappings
 # Each code maps to shift timing
 code_mappings:
