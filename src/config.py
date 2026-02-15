@@ -67,6 +67,22 @@ class Settings(BaseSettings):
         description="Delete all events in the month before uploading new ones (for development)"
     )
 
+    # Reminder acknowledgment store (optional; if set, use Redis instead of file)
+    redis_url: Optional[str] = Field(
+        default=None,
+        description="Redis URL for shared reminder state (e.g. redis://localhost:6379/0). Enables multi-instance."
+    )
+    # How often the reminder job runs (seconds). Default 5 min so we catch reminder time promptly.
+    reminder_job_interval_seconds: int = Field(
+        default=300,
+        description="How often to check calendar and send due reminders (default 300 = 5 min). Set lower in dev to test.",
+    )
+    # How long (seconds) before we may send the same reminder again if not acknowledged. Default 45 min to avoid spam.
+    reminder_sent_slot_ttl_seconds: int = Field(
+        default=2700,
+        description="TTL for 'reminder sent' slot (default 2700 = 45 min). Re-send at most this often until acknowledged.",
+    )
+
     @property
     def is_calendar_configured(self) -> bool:
         """Check if Google Calendar is fully configured."""
@@ -80,6 +96,7 @@ class ShiftConfig:
         self.config_path = Path(config_path)
         self._code_mappings: dict = {}
         self._color_fallbacks: dict = {}
+        self._shift_groups: dict = {}
         self.load()
 
     def load(self) -> None:
@@ -93,6 +110,7 @@ class ShiftConfig:
 
         self._code_mappings = data.get("code_mappings", {})
         self._color_fallbacks = data.get("color_fallbacks", {})
+        self._shift_groups = data.get("shift_groups", {})
 
     def reload(self) -> None:
         """Reload configuration from file."""
@@ -179,6 +197,67 @@ class ShiftConfig:
 
         return None
 
+    def get_shift_group(self, shift_info: dict) -> str:
+        """
+        Classify shift into group: am, pm, night, or off.
+        Off = all_day; else by shift start time vs shift_groups boundaries.
+        """
+        if shift_info.get("all_day"):
+            return "off"
+        start_str = shift_info.get("start", "09:00")
+        parts = start_str.split(":")
+        hour = int(parts[0]) if parts else 0
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        start_minutes = hour * 60 + minute
+
+        # Evaluate in fixed order: am (< noon), pm (noon–7pm), night (>= 7pm)
+        for group_id in ("am", "pm", "night"):
+            group_config = self._shift_groups.get(group_id, {})
+            start_before = group_config.get("start_before")
+            start_from = group_config.get("start_from")
+            if start_before and start_from is None:
+                # am: start_before "12:00"
+                h, m = map(int, str(start_before).split(":"))
+                if start_minutes < h * 60 + m:
+                    return group_id
+            elif start_from is not None:
+                h, m = map(int, str(start_from).split(":"))
+                lo = h * 60 + m
+                hi = 24 * 60
+                if start_before:
+                    h2, m2 = map(int, str(start_before).split(":"))
+                    hi = h2 * 60 + m2
+                if lo <= start_minutes < hi:
+                    return group_id
+        return "off"
+
+    def get_reminder_offset_minutes(self, group_id: str) -> Optional[int]:
+        """
+        Offset in minutes from shift start when to send reminder.
+        Positive = after start, negative = before start. None = no offset (use reminder_at if set).
+        """
+        group = self._shift_groups.get(group_id, {})
+        val = group.get("reminder_offset_minutes")
+        return int(val) if val is not None else None
+
+    def get_off_day_reminder_at(self) -> Optional[str]:
+        """
+        Fixed time (HH:MM) to send reminder on off days (all_day events).
+        From shift_groups.off.reminder_at. None = no reminder on off days.
+        """
+        group = self._shift_groups.get("off", {})
+        val = group.get("reminder_at")
+        return str(val) if val is not None else None
+
+    def get_reminder_at(self, group_id: str) -> Optional[str]:
+        """
+        Fixed time (HH:MM) to send reminder for this group, if set.
+        From shift_groups.<group_id>.reminder_at. Use when reminder_offset_minutes is null.
+        """
+        group = self._shift_groups.get(group_id, {})
+        val = group.get("reminder_at")
+        return str(val) if val is not None else None
+
     def get_all_codes(self) -> list[str]:
         """Get list of all known shift codes."""
         return list(self._code_mappings.keys())
@@ -251,12 +330,31 @@ class GridConfig:
     def header_height_pct(self) -> float:
         """Height of header region as percentage of image height."""
         return self._config.get("header_height_pct", 0.35)
+
+    def header_left_pct(self) -> float:
+        """Left edge of header region as percentage of image width."""
+        return self._config.get("header_left_pct", 0.0)
+
+    @property
+    def header_right_pct(self) -> float:
+        """Right edge of header region as percentage of image width."""
+        return self._config.get("header_right_pct", 1.0)
+
+    @property
+    def header_top_pct(self) -> float:
+        """Top edge of header region as percentage of image height."""
+        return self._config.get("header_top_pct", 0.0)
+
+    @property
+    def header_bottom_pct(self) -> float:
+        """Bottom edge of header region as percentage of image height."""
+        return self._config.get("header_bottom_pct", 0.35)
     
     @property
     def crop_top_pct(self) -> float:
         """Percentage of cell height to remove from top."""
         return self._config.get("crop_top_pct", 0.05)
-    
+
     @property
     def crop_bottom_pct(self) -> float:
         """Percentage of cell height to remove from bottom."""

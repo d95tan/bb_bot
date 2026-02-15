@@ -23,9 +23,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Get version from pyproject.toml
+        id: pyproject_version
+        run: |
+          V=$(grep '^version = ' pyproject.toml | sed -n 's/^version = "\(.*\)"$/\1/p')
+          echo "version=${V}" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
 
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
@@ -34,6 +39,14 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check version tag does not already exist
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pyproject_version.outputs.version }} >/dev/null 2>&1; then
+            echo "::error::Image tag ${{ steps.pyproject_version.outputs.version }} already exists. Bump version in pyproject.toml before merging to main."
+            exit 1
+          fi
 
       - name: Extract Docker metadata
         id: meta
@@ -46,13 +59,43 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
 
+      - name: Set version from tag
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set BUILD_VERSION for image
+        id: build_version
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${{ steps.pyproject_version.outputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare tags
+        id: tags
+        run: |
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pyproject_version.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ steps.build_version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

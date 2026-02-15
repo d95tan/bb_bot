@@ -5,10 +5,12 @@ Run this script once to authorize the bot and get a refresh token,
 then add it to your .env file.
 
 Usage:
-    python -m src.auth_setup
+    telebot-auth
+    # Or: python -m scripts.auth_setup
 """
 
 from google_auth_oauthlib.flow import InstalledAppFlow
+
 from src.config import get_settings
 
 

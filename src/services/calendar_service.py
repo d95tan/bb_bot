@@ -2,7 +2,8 @@
 
 import asyncio
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -19,20 +20,20 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 
 class CalendarService:
     """Google Calendar service for managing shift events."""
-    
+
     def __init__(self) -> None:
         self.settings = get_settings()
         self._service = None
-    
+
     @property
     def credentials(self) -> Credentials:
         """Get credentials from environment config."""
         if not self.settings.google_refresh_token:
             raise ValueError(
                 "Google Calendar not configured. "
-                "Run 'python -m src.auth_setup' to set up authorization."
+                "Run 'telebot-auth' (or python -m scripts.auth_setup) to set up authorization."
             )
-        
+
         return Credentials(
             token=None,
             refresh_token=self.settings.google_refresh_token,
@@ -41,19 +42,20 @@ class CalendarService:
             client_secret=self.settings.google_client_secret,
             scopes=SCOPES,
         )
-    
+
     @property
     def service(self) -> build:
         """Get or create the Calendar API service."""
         if self._service is None:
-            self._service = build("calendar", "v3", credentials=self.credentials)
+            self._service = build(
+                "calendar", "v3", credentials=self.credentials)
         return self._service
-    
+
     @property
     def calendar_id(self) -> str:
         """Get the calendar ID from settings."""
         return self.settings.google_calendar_id
-    
+
     async def create_shift_event(
         self,
         shift_date: date,
@@ -72,7 +74,8 @@ class CalendarService:
         shift_name = shift_info.get("name", "Shift")
 
         # Build event based on shift type
-        event = self._build_event_body(shift_date, shift_info, self.settings.timezone)
+        event = self._build_event_body(
+            shift_date, shift_info, self.settings.timezone)
 
         try:
             # Run blocking Google API call in thread pool
@@ -83,7 +86,8 @@ class CalendarService:
                 ).execute
             )
 
-            logger.info(f"Created calendar event: {shift_name} on {shift_date}")
+            logger.info(
+                f"Created calendar event: {shift_name} on {shift_date}")
             return created_event.get("id"), "created"
 
         except HttpError as e:
@@ -146,13 +150,15 @@ class CalendarService:
                 "timeZone": timezone,
             },
         }
-    
+
     async def get_shifts_for_date(self, target_date: date) -> list[dict]:
-        """Get all shift events for a specific date."""
-        # Search for events on that date
-        time_min = datetime.combine(target_date, datetime.min.time()).isoformat() + "Z"
-        time_max = datetime.combine(target_date + timedelta(days=1), datetime.min.time()).isoformat() + "Z"
-        
+        """Get all shift events for a specific date (in the calendar's timezone)."""
+        tz = ZoneInfo(self.settings.timezone)
+        time_min = datetime.combine(
+            target_date, time.min, tzinfo=tz).isoformat()
+        time_max = datetime.combine(
+            target_date + timedelta(days=1), time.min, tzinfo=tz
+        ).isoformat()
         try:
             # Run blocking Google API call in thread pool
             events_result = await asyncio.to_thread(
@@ -164,18 +170,20 @@ class CalendarService:
                     orderBy="startTime",
                 ).execute
             )
-            
+
             return events_result.get("items", [])
-            
+
         except HttpError as e:
             logger.error(f"Failed to get calendar events: {e}")
             raise
-    
+
     async def get_shifts_for_range(self, start_date: date, end_date: date) -> list[dict]:
         """Get all shift events within a date range."""
-        time_min = datetime.combine(start_date, datetime.min.time()).isoformat() + "Z"
-        time_max = datetime.combine(end_date + timedelta(days=1), datetime.min.time()).isoformat() + "Z"
-        
+        time_min = datetime.combine(
+            start_date, datetime.min.time()).isoformat() + "Z"
+        time_max = datetime.combine(
+            end_date + timedelta(days=1), datetime.min.time()).isoformat() + "Z"
+
         try:
             # Run blocking Google API call in thread pool
             events_result = await asyncio.to_thread(
@@ -187,13 +195,13 @@ class CalendarService:
                     orderBy="startTime",
                 ).execute
             )
-            
+
             return events_result.get("items", [])
-            
+
         except HttpError as e:
             logger.error(f"Failed to get calendar events: {e}")
             raise
-    
+
     async def clear_date_range(
         self,
         start_date: date,
@@ -202,45 +210,50 @@ class CalendarService:
     ) -> int:
         """
         Delete all events in a date range before uploading new shifts.
-        
+
         Args:
             start_date: First date to clear
             end_date: Last date to clear
             preserve_overnight_from_previous: If True, don't delete events that
                 started on the day before start_date (e.g., night shifts)
-                
+
         Returns:
             Number of events deleted
         """
-        logger.info(f"Clearing calendar events from {start_date} to {end_date}")
-        
+        logger.info(
+            f"Clearing calendar events from {start_date} to {end_date}")
+
         events = await self.get_shifts_for_range(start_date, end_date)
-        
+
         deleted_count = 0
         for event in events:
             event_id = event.get("id")
             if not event_id:
                 continue
-                
+
             # Check if we should preserve overnight events from previous day
             if preserve_overnight_from_previous:
                 event_start = event.get("start", {})
                 # Get the event's start date (handle both all-day and timed events)
-                start_str = event_start.get("dateTime") or event_start.get("date")
+                start_str = event_start.get(
+                    "dateTime") or event_start.get("date")
                 if start_str:
                     # Parse the date portion
-                    event_start_date = datetime.fromisoformat(start_str.replace("Z", "+00:00")).date()
+                    event_start_date = datetime.fromisoformat(
+                        start_str.replace("Z", "+00:00")).date()
                     if event_start_date < start_date:
-                        logger.debug(f"Preserving overnight event from {event_start_date}: {event.get('summary')}")
+                        logger.debug(
+                            f"Preserving overnight event from {event_start_date}: {event.get('summary')}")
                         continue
-            
+
             try:
                 await self.delete_event(event_id)
                 deleted_count += 1
             except Exception as e:
                 logger.error(f"Failed to delete event {event_id}: {e}")
-        
-        logger.info(f"Cleared {deleted_count} events from {start_date} to {end_date}")
+
+        logger.info(
+            f"Cleared {deleted_count} events from {start_date} to {end_date}")
         return deleted_count
 
     async def delete_event(self, event_id: str) -> None:
@@ -253,9 +266,9 @@ class CalendarService:
                     eventId=event_id,
                 ).execute
             )
-            
+
             logger.debug(f"Deleted calendar event: {event_id}")
-            
+
         except HttpError as e:
             logger.error(f"Failed to delete calendar event: {e}")
             raise
@@ -263,26 +276,26 @@ class CalendarService:
     async def wipe_month(self, year: int, month: int) -> int:
         """
         Delete all events in a specific month.
-        
+
         Args:
             year: Year (e.g., 2025)
             month: Month (1-12)
-            
+
         Returns:
             Number of events deleted
         """
         from calendar import monthrange
-        
+
         # Get first and last day of month
         _, last_day = monthrange(year, month)
         start_date = date(year, month, 1)
         end_date = date(year, month, last_day)
-        
+
         logger.warning(f"Wiping calendar events for {year}-{month:02d}")
-        
+
         # Get all events in the month
         events = await self.get_shifts_for_range(start_date, end_date)
-        
+
         # Delete each event
         deleted_count = 0
         for event in events:
@@ -293,6 +306,6 @@ class CalendarService:
                     deleted_count += 1
                 except HttpError as e:
                     logger.error(f"Failed to delete event {event_id}: {e}")
-        
+
         logger.info(f"Deleted {deleted_count} events from {year}-{month:02d}")
         return deleted_count
