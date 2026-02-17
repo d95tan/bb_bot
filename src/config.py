@@ -331,6 +331,7 @@ class GridConfig:
         """Height of header region as percentage of image height."""
         return self._config.get("header_height_pct", 0.35)
 
+    @property
     def header_left_pct(self) -> float:
         """Left edge of header region as percentage of image width."""
         return self._config.get("header_left_pct", 0.0)
