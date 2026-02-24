@@ -1,322 +1,318 @@
 # Shift Configuration
 # Two-tier lookup: code_mappings (primary) -> color_fallbacks (secondary)
 
-# Shift groups for reminders: AM / PM / Night / Off
+# Shift groups for reminders. Keys match code_mappings categories (AM, PM, Night, Off, etc.) for 1:1 control.
 # Reminder: reminder_offset_minutes = offset from shift start (+ after, - before); or reminder_at = fixed HH:MM
-# Classification: off = all_day; else by shift start time vs boundaries below
+# Time-based classification (when event name doesn't match) uses AM/PM/Night boundaries and Off for all_day/rest_day.
 shift_groups:
-  am:
-    reminder_offset_minutes: 30   # remind 30 min after shift starts
+  AM:
+    reminder_offset_minutes: 30
     start_before: "12:00"         # shift starts before noon
-  pm:
-    reminder_offset_minutes: -60  # remind 60 min before shift starts
+  Swing:
+    reminder_offset_minutes: 30   # same as AM; no time boundaries (name-only)
+  PM:
+    reminder_offset_minutes: -60
     start_from: "12:00"
-    start_before: "19:00"         # noon up to (but not including) 7pm
-  night:
-    # Use reminder_offset_minutes (offset from shift start) or reminder_at (fixed time; set offset to null)
-    reminder_offset_minutes: -60 # remind 1 hour before shift starts
-    # reminder_at: "20:00"       # or fixed time, e.g. 8pm on night-shift days
-    start_from: "19:00"          # 7pm onwards
-  off:
-    reminder_offset_minutes: null # no shift start; use reminder_at for off days
-    reminder_at: "09:30"         # fixed time to remind on off days (RD, DO, AL, etc.). Set to null to disable.
+    start_before: "19:00"
+  Night:
+    reminder_offset_minutes: -60
+    start_from: "19:00"
+  Training:
+    reminder_offset_minutes: 30
+  Project:
+    reminder_offset_minutes: 30
+  "Off":
+    reminder_offset_minutes: null
+    reminder_at: "09:30"         # fixed time for off days (RD, DO, etc.). Set to null to disable.
+  Leave:
+    reminder_offset_minutes: null
+    reminder_at: "09:30"
+  Medical:
+    reminder_offset_minutes: null
+    reminder_at: "09:30"
+    
 
 # Primary: Direct code-to-shift mappings
-# Each code maps to shift timing
+# Optional category layer: code_mappings can be flat (CODE: {...}) or grouped (CATEGORY: { CODE: {...}, ... })
+# Lookup is by code only; categories (AM, PM, etc.) are for organisation in this file.
 code_mappings:
-  # AM/Day Shifts (Light Green colored)
-  D077S:
-    name: "A4"
-    start: "07:30"
-    end: "14:30"
-    same_day: true
-    description: "D077S - AM Shift (Short)"
-  
-  D0GG:
-    name: "A1"
-    start: "07:30"
-    end: "15:00"
-    same_day: true
-    description: "D0GG - AM Shift (Short)"
-  
-  D0G8:
-    name: "A3"
-    start: "07:30"
-    end: "15:30"
-    same_day: true
-    description: "D0G8 - AM Shift"
-
-  D0GH:
-    name: "A2"
-    start: "07:30"
-    end: "16:00"
-    same_day: true
-    description: "D0GH - AM Shift"
-
-  D0G9:
-    name: "A5"
-    start: "07:30"
-    end: "16:30"
-    same_day: true
-    description: "D0G9 - AM Shift (Long)"
-
-  D0GI:
-    name: "A6"
-    start: "07:30"
-    end: "17:00"
-    same_day: true
-    description: "D0GI - AM Shift (Long)"
-
-  # Swing Shifts (Also Light Green colored)
-  D09F:
-    name: "Swing"
-    start: "09:00"
-    end: "16:30"
-    same_day: true
-    description: "D09F - Swing Shift (Short)"
-
-  D098:
-    name: "Swing"
-    start: "09:00"
-    end: "17:00"
-    same_day: true
-    description: "D098 - Swing Shift"
-
-  # PM Shifts (Pink/Salmon colored)
-  E13H:
-    name: "P2"
-    start: "13:00"
-    end: "21:30"
-    same_day: true
-    description: "E13H - PM Shift (Early)"
-
-  E0M8:
-    name: "P1"
-    start: "13:30"
-    end: "21:30"
-    same_day: true
-    description: "E0M8 - PM Shift"
-  
-  E139:
-    name: "P3"
-    start: "13:00"
-    end: "22:00"
-    same_day: true
-    description: "E139 - PM Shift (Late)"
-
-  # Night Shifts (Blue colored)
-  N2111:
-    name: "Nig"
-    start: "21:00"
-    end: "08:00"
-    same_day: false
-    description: "N2111 - Night Shift"
-
-  # Training (Medium Green colored)
-  TD:
-    name: "TL"
-    start: "08:30"
-    end: "17:30"
-    same_day: true
-    description: "TD - Training Day"
-  
-  TDE:
-    name: "TL"
-    start: "08:30"
-    end: "17:30"
-    same_day: true
-    description: "TDE - Training Day (External)"
-  
-  TR_FD:
-    name: "TL"
-    start: "08:30"
-    end: "17:30"
-    same_day: true
-    description: "TR_FD - Trainer (Full Day)"
-
-  # Project Shift
-  D08...:
-    name: "Project"
-    start: "08:00"
-    end: "17:00"
-    same_day: true
-    description: "D08... - Project Shift"
-  
-  # Day Off / Rest Day (Gray colored)
-  DO:
-    name: "Off"
-    all_day: true
-    description: "DO - Day Off"
-  
-  RD:
-    name: "Off"
-    all_day: true
-    description: "RD - Rest Day"
-
-  # Leave Types (Yellow colored)
-  AL:
-    name: "AL"
-    all_day: true
-    description: "AL - Annual Leave"
-  
-  ALU:
-    name: "AL"
-    all_day: true
-    description: "ALU - Annual Leave (Unapproved)"
-  
-  HL:
-    all_day: true
-    description: "HL - Hospitalisation Leave"
-
-  HLU:
-    name: "HL"
-    all_day: true
-    description: "HLU - Hospitalisation Leave (Unapproved)"
-  
-  FCL:
-    name: "AL"
-    all_day: true
-    description: "FCL - Family Care Leave"
-  
-  FCLU:
-    name: "AL"
-    all_day: true
-    description: "FCLU - Family Care Leave (Unapproved)"
-
-  # Medical (Purple colored)
-  MC:
-    name: "MC"
-    all_day: true
-    description: "MC - Sick Leave"
-  
-  MCU:
-    name: "MC"
-    all_day: true
-    description: "MCU - Sick Leave (Unapproved)"
-  
-  # Other
-  PH:
-    name: "PH"
-    all_day: true
-    description: "PH - Public Holiday"
-
-  BOILU:
-    name: "AL"
-    all_day: true
-    description: "BOILU - Birthday Off-in-lieu (Unapproved)"
-
-  DOL:
-    name: "AL"
-    all_day: true
-    description: "DOL - Off-in-lieu"
-
-
-# Secondary: Color-based fallback mappings
-# Used when shift code is not found in code_mappings
-# Colors are defined as RGB ranges for detection
-color_fallbacks:
-  light_green:
-    # Light Green: AM/Day shifts
-    rgb_range:
-      r: [160, 210]
-      g: [200, 255]
-      b: [165, 215]
-    shift:
-      name: "AM (Colour)"
+  AM:
+    # AM/Day Shifts (Light Green colored)
+    D077S:
+      name: "A4"
+      start: "07:30"
+      end: "14:30"
+      same_day: true
+      description: "D077S - AM Shift (Short)"
+    D0GG:
+      name: "A1"
+      start: "07:30"
+      end: "15:00"
+      same_day: true
+      description: "D0GG - AM Shift (Short)"
+    D0G8:
+      name: "A3"
+      start: "07:30"
+      end: "15:30"
+      same_day: true
+      description: "D0G8 - AM Shift"
+    D0GH:
+      name: "A2"
       start: "07:30"
       end: "16:00"
       same_day: true
-      description: "AM Shift (detected by LIGHT GREEN colour)"
+      description: "D0GH - AM Shift"
+    D0G9:
+      name: "A5"
+      start: "07:30"
+      end: "16:30"
+      same_day: true
+      description: "D0G9 - AM Shift (Long)"
+    D0GI:
+      name: "A6"
+      start: "07:30"
+      end: "17:00"
+      same_day: true
+      description: "D0GI - AM Shift (Long)"
 
-  pink:
-    # Pink/Salmon: E0M8, E13H type shifts
-    rgb_range:
-      r: [200, 255]
-      g: [100, 180]
-      b: [150, 220]
-    shift:
-      name: "PM (Colour)"
+  Swing:
+    # Swing Shifts (Also Light Green colored)
+    D09F:
+      name: "Swing"
+      start: "09:00"
+      end: "16:30"
+      same_day: true
+      description: "D09F - Swing Shift (Short)"
+    D098:
+      name: "Swing"
+      start: "09:00"
+      end: "17:00"
+      same_day: true
+      description: "D098 - Swing Shift"
+
+  PM:
+    # PM Shifts (Pink/Salmon colored)
+    E13H:
+      name: "P2"
+      start: "13:00"
+      end: "21:30"
+      same_day: true
+      description: "E13H - PM Shift (Early)"
+    E0M8:
+      name: "P1"
       start: "13:30"
       end: "21:30"
       same_day: true
-      description: "PM Shift (detected by PINK colour)"
+      description: "E0M8 - PM Shift"
+    E139:
+      name: "P3"
+      start: "13:00"
+      end: "22:00"
+      same_day: true
+      description: "E139 - PM Shift (Late)"
 
-  blue:
-    # Blue: Night shifts
-    rgb_range:
-      r: [135, 185]
-      g: [170, 220]
-      b: [205, 255]
-    shift:
-      name: "Nig (Colour)"
+  Night:
+    # Night Shifts (Blue colored)
+    N2111:
+      name: "Nig"
       start: "21:00"
       end: "08:00"
       same_day: false
-      description: "Night Shift (detected by BLUE colour)"
+      description: "N2111 - Night Shift"
 
-  dark_green:
-    # Dark Green: Project
-    rgb_range:
-      r: [60, 100]
-      g: [140, 180]
-      b: [100, 140]
-    shift:
-      name: "Project (Colour)"
+  Training:
+    # Training (Medium Green colored)
+    TD:
+      name: "TL"
+      start: "08:30"
+      end: "17:30"
+      same_day: true
+      description: "TD - Training Day"
+    TDE:
+      name: "TL"
+      start: "08:30"
+      end: "17:30"
+      same_day: true
+      description: "TDE - Training Day (External)"
+    TR_FD:
+      name: "TL"
+      start: "08:30"
+      end: "17:30"
+      same_day: true
+      description: "TR_FD - Trainer (Full Day)"
+
+  Project:
+    "D08...":
+      name: "Project"
       start: "08:00"
       end: "17:00"
       same_day: true
-      description: "Project (detected by DARK GREEN colour)"
+      description: "D08... - Project Shift"
 
-  yellow:
-    # Yellow: Leave types
-    rgb_range:
-      r: [230, 255]
-      g: [230, 255]
-      b: [100, 180]
-    shift:
-      name: "Leave (Colour)"
+  "Off":
+    # Day Off / Rest Day (Gray colored)
+    DO:
+      name: "Off"
       all_day: true
-      description: "Leave (detected by YELLOW colour)"
-
-  white:
-    # White: Day off / Rest day (if there is text. However, if there is no text, it is an empty cell and should be skipped)
-    rgb_range:
-      r: [160, 210]
-      g: [160, 210]
-      b: [160, 210]
-    skip: true
-
-  purple:
-    # Purple: Public Holiday
-    rgb_range:
-      r: [180, 230]
-      g: [150, 200]
-      b: [220, 255]
-    shift:
-      name: "PH (Colour)"
+      description: "DO - Day Off"
+    RD:
+      name: "Off"
       all_day: true
-      description: "Public Holiday (detected by PURPLE colour)"
+      description: "RD - Rest Day"
 
-  medium_green:
-    # Green: Training
-    rgb_range:
-      r: [145, 175]
-      g: [185, 215]
-      b: [35, 65]
-    shift:
-      name: "TL (Colour)"
-      start: "08:00"
-      end: "18:00"
-      same_day: true
-      description: "Training (detected by MEDIUM GREEN colour)"
-
-  BOILU:
-    # Olive: Birthday Off-in-lieu (Unapproved)
-    rgb_range:
-      r: [130, 160]
-      g: [130, 160]
-      b: [45, 75]
-    shift:
-      name: "AL (Colour)"
+  Leave:
+    # Leave Types (Yellow colored)
+    AL:
+      name: "AL"
       all_day: true
-      description: "Birthday Off-in-lieu (Unapproved) (detected by OLIVE color)"
+      description: "AL - Annual Leave"
+    ALU:
+      name: "AL"
+      all_day: true
+      description: "ALU - Annual Leave (Unapproved)"
+    HL:
+      all_day: true
+      description: "HL - Hospitalisation Leave"
+    HLU:
+      name: "HL"
+      all_day: true
+      description: "HLU - Hospitalisation Leave (Unapproved)"
+    FCL:
+      name: "AL"
+      all_day: true
+      description: "FCL - Family Care Leave"
+    FCLU:
+      name: "AL"
+      all_day: true
+      description: "FCLU - Family Care Leave (Unapproved)"
+    PH:
+      name: "PH"
+      all_day: true
+      description: "PH - Public Holiday"
+    BOILU:
+      name: "AL"
+      all_day: true
+      description: "BOILU - Birthday Off-in-lieu (Unapproved)"
+    DOL:
+      name: "AL"
+      all_day: true
+      description: "DOL - Off-in-lieu"
+
+  Medical:
+    MC:
+      name: "MC"
+      all_day: true
+      description: "MC - Sick Leave"
+    MCU:
+      name: "MC"
+      all_day: true
+      description: "MCU - Sick Leave (Unapproved)"
+
+
+# Secondary: Color-based fallback mappings
+# Same category structure as code_mappings: CATEGORY: { color_name: { rgb_range, shift, ... }, ... }
+# Lookup is by color name; categories (AM, PM, etc.) set reminder group and organise the file.
+color_fallbacks:
+  AM:
+    light_green:
+      rgb_range:
+        r: [160, 210]
+        g: [200, 255]
+        b: [165, 215]
+      shift:
+        name: "AM (Colour)"
+        start: "07:30"
+        end: "16:00"
+        same_day: true
+        description: "AM Shift (detected by LIGHT GREEN colour)"
+
+  PM:
+    pink:
+      rgb_range:
+        r: [200, 255]
+        g: [100, 180]
+        b: [150, 220]
+      shift:
+        name: "PM (Colour)"
+        start: "13:30"
+        end: "21:30"
+        same_day: true
+        description: "PM Shift (detected by PINK colour)"
+
+  Night:
+    blue:
+      rgb_range:
+        r: [135, 185]
+        g: [170, 220]
+        b: [205, 255]
+      shift:
+        name: "Nig (Colour)"
+        start: "21:00"
+        end: "08:00"
+        same_day: false
+        description: "Night Shift (detected by BLUE colour)"
+
+  Project:
+    dark_green:
+      rgb_range:
+        r: [60, 100]
+        g: [140, 180]
+        b: [100, 140]
+      shift:
+        name: "Project (Colour)"
+        start: "08:00"
+        end: "17:00"
+        same_day: true
+        description: "Project (detected by DARK GREEN colour)"
+
+  Leave:
+    yellow:
+      rgb_range:
+        r: [230, 255]
+        g: [230, 255]
+        b: [100, 180]
+      shift:
+        name: "Leave (Colour)"
+        all_day: true
+        description: "Leave (detected by YELLOW colour)"
+    BOILU:
+      rgb_range:
+        r: [130, 160]
+        g: [130, 160]
+        b: [45, 75]
+      shift:
+        name: "AL (Colour)"
+        all_day: true
+        description: "Birthday Off-in-lieu (Unapproved) (detected by OLIVE color)"
+
+  "Off":
+    white:
+      rgb_range:
+        r: [160, 210]
+        g: [160, 210]
+        b: [160, 210]
+      skip: true
+
+  Other:
+    purple:
+      rgb_range:
+        r: [180, 230]
+        g: [150, 200]
+        b: [220, 255]
+      shift:
+        name: "PH (Colour)"
+        all_day: true
+        description: "Public Holiday (detected by PURPLE colour)"
+
+  Training:
+    medium_green:
+      rgb_range:
+        r: [145, 175]
+        g: [185, 215]
+        b: [35, 65]
+      shift:
+        name: "TL (Colour)"
+        start: "08:00"
+        end: "18:00"
+        same_day: true
+        description: "Training (detected by MEDIUM GREEN colour)"
