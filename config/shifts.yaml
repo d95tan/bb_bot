@@ -275,6 +275,15 @@ color_fallbacks:
         name: "Leave (Colour)"
         all_day: true
         description: "Leave (detected by YELLOW colour)"
+    gray:
+      rgb_range:
+        r: [140, 170]
+        g: [140, 170]
+        b: [140, 170]
+      shift:
+        name: "ALU (Colour)"
+        all_day: true
+        description: "Leave (Unapproved) (detected by GRAY colour)"
     BOILU:
       rgb_range:
         r: [130, 160]
