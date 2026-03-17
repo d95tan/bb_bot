@@ -9,5 +9,6 @@ COMMANDS = [
     BotCommand("help", "Show available commands and usage instructions"),
     BotCommand("schedule", "View your upcoming schedule from Google Calendar"),
     BotCommand("took_medication", "Mark medication as taken today"),
+    BotCommand("medication_stats", "View medication streaks and adherence"),
     BotCommand("version", "Show deployed version"),
 ]

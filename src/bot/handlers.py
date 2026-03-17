@@ -18,6 +18,7 @@ from src.config import get_settings, Settings
 from src.services.image_processor import process_schedule_image
 from src.services.calendar_service import CalendarService
 from src.services import reminder_service
+from src.services import medication_stats
 from src.bot.commands import COMMANDS
 from src.bot import replies
 from src.version import get_version
@@ -275,13 +276,23 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await processing_msg.edit_text(replies.IMAGE_PROCESSING_ERROR.format(error=str(e)))
 
 
+def _streak_suffix(n: int) -> str:
+    """Return plural 's' for streak message (e.g. '1 day' vs '2 days')."""
+    return "" if n == 1 else "s"
+
+
 async def took_medication_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /took_medication - mark medication as acknowledged for today."""
     if not is_authorized_user(update.effective_user.id):
         return
     user_id = update.effective_user.id
     reminder_service.acknowledge_medication(user_id)
-    await update.message.reply_text(replies.TOOK_MEDICATION_REPLY)
+    streak = medication_stats.get_current_streak(user_id)
+    if streak > 0:
+        text = replies.TOOK_MEDICATION_REPLY_WITH_STREAK.format(streak=streak)
+    else:
+        text = replies.TOOK_MEDICATION_REPLY
+    await update.message.reply_text(text)
 
 
 async def reminder_ack_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -295,10 +306,35 @@ async def reminder_ack_callback(update: Update, context: ContextTypes.DEFAULT_TY
     reminder_service.acknowledge_medication(user_id)
     await update.callback_query.answer(replies.REMINDER_ACK_CALLBACK_ANSWER)
     if update.callback_query.message:
+        streak = medication_stats.get_current_streak(user_id)
+        if streak > 0:
+            text = replies.REMINDER_ACK_EDIT_TEXT_WITH_STREAK.format(streak=streak)
+        else:
+            text = replies.REMINDER_ACK_EDIT_TEXT
         await update.callback_query.edit_message_text(
-            replies.REMINDER_ACK_EDIT_TEXT,
+            text,
             parse_mode="Markdown",
         )
+
+
+async def medication_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /medication_stats - show current streak, longest streak, adherence rate."""
+    if not is_authorized_user(update.effective_user.id):
+        return
+    user_id = update.effective_user.id
+    current = medication_stats.get_current_streak(user_id)
+    longest = medication_stats.get_longest_streak(user_id)
+    rate = medication_stats.get_adherence_rate(user_id, days=30)
+    if current == 0 and longest == 0:
+        await update.message.reply_text(replies.MEDICATION_STATS_NO_DATA)
+        return
+    lines = [
+        replies.MEDICATION_STATS_HEADER,
+        replies.MEDICATION_STATS_CURRENT.format(n=current, s=_streak_suffix(current)),
+        replies.MEDICATION_STATS_LONGEST.format(n=longest, s=_streak_suffix(longest)),
+        replies.MEDICATION_STATS_RATE.format(pct=rate * 100),
+    ]
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -368,6 +404,7 @@ def setup_handlers(application: Application) -> None:
     application.add_handler(CommandHandler("version", version_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
     application.add_handler(CommandHandler("took_medication", took_medication_command))
+    application.add_handler(CommandHandler("medication_stats", medication_stats_command))
 
     # Reminder acknowledgment button
     application.add_handler(

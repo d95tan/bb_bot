@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 
 from src.config import get_settings, get_shift_config
 from src.constants import REMINDER_ACK_TTL_SECONDS
+from src.services import medication_stats
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,7 @@ def acknowledge_medication(user_id: int) -> None:
         _save_acknowledged_file(ack)
     if user_id in _pending_reminders:
         del _pending_reminders[user_id]
+    medication_stats.record_taken(user_id, today)
     logger.info("Medication acknowledged for user %s", user_id)
 
 

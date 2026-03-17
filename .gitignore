@@ -55,6 +55,9 @@ cover/
 *.mo
 *.pot
 
+# Runtime data (acks, medication stats DB)
+data/
+
 # Django stuff:
 *.log
 local_settings.py
