@@ -32,7 +32,8 @@ def _event_to_shift_info(event: dict, tz_str: str) -> tuple[date, dict] | None:
             shift_date = date.fromisoformat(start_data["date"])
         except (ValueError, TypeError):
             return None
-        return (shift_date, {"all_day": True})
+        summary = (event.get("summary") or "").strip()
+        return (shift_date, {"all_day": True, "summary": summary or None})
 
     date_time_str = start_data.get("dateTime")
     end_time_str = end_data.get("dateTime")
@@ -59,11 +60,13 @@ def _event_to_shift_info(event: dict, tz_str: str) -> tuple[date, dict] | None:
     shift_date = start_dt.date()
     same_day = start_dt.date() == end_dt.date()
 
+    summary = (event.get("summary") or "").strip()
     shift_info = {
         "start": start_dt.strftime("%H:%M"),
         "end": end_dt.strftime("%H:%M"),
         "same_day": same_day,
         "all_day": False,
+        "summary": summary or None,
     }
     return (shift_date, shift_info)
 

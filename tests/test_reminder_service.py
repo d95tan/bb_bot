@@ -11,23 +11,52 @@ class TestGetShiftGroup:
     """Tests for get_shift_group classification."""
 
     def test_all_day_is_off(self) -> None:
-        assert reminder_service.get_shift_group({"all_day": True}) == "off"
+        assert reminder_service.get_shift_group({"all_day": True}) == "Off"
 
     def test_am_by_start_time(self) -> None:
         # Before 12:00
-        assert reminder_service.get_shift_group({"start": "07:30", "all_day": False}) == "am"
-        assert reminder_service.get_shift_group({"start": "09:00", "all_day": False}) == "am"
+        assert reminder_service.get_shift_group({"start": "07:30", "all_day": False}) == "AM"
+        assert reminder_service.get_shift_group({"start": "09:00", "all_day": False}) == "AM"
 
     def test_pm_by_start_time(self) -> None:
         # 12:00 up to (but not including) 19:00
-        assert reminder_service.get_shift_group({"start": "13:30", "all_day": False}) == "pm"
-        assert reminder_service.get_shift_group({"start": "12:00", "all_day": False}) == "pm"
-        assert reminder_service.get_shift_group({"start": "18:30", "all_day": False}) == "pm"
+        assert reminder_service.get_shift_group({"start": "13:30", "all_day": False}) == "PM"
+        assert reminder_service.get_shift_group({"start": "12:00", "all_day": False}) == "PM"
+        assert reminder_service.get_shift_group({"start": "18:30", "all_day": False}) == "PM"
 
     def test_night_by_start_time(self) -> None:
         # 19:00 onwards
-        assert reminder_service.get_shift_group({"start": "21:00", "all_day": False}) == "night"
-        assert reminder_service.get_shift_group({"start": "19:00", "all_day": False}) == "night"
+        assert reminder_service.get_shift_group({"start": "21:00", "all_day": False}) == "Night"
+        assert reminder_service.get_shift_group({"start": "19:00", "all_day": False}) == "Night"
+
+    def test_08_00_08_00_classified_by_start_time(self) -> None:
+        # Timed 08:00–08:00 has no special case; classified by start time → AM (before 12:00)
+        assert reminder_service.get_shift_group({
+            "start": "08:00", "end": "08:00", "all_day": False
+        }) == "AM"
+
+    def test_08_00_17_00_stays_am(self) -> None:
+        # Project / real shift 08:00–17:00 stays am, not off
+        assert reminder_service.get_shift_group({
+            "start": "08:00", "end": "17:00", "all_day": False
+        }) == "AM"
+
+    def test_summary_off_uses_name_even_timed(self) -> None:
+        # Event named "Off" (e.g. off-after-night 08:00–17:00) → off by name, not by time
+        assert reminder_service.get_shift_group({
+            "start": "08:00", "end": "17:00", "all_day": False, "summary": "Off"
+        }) == "Off"
+
+    def test_summary_nig_is_night(self) -> None:
+        assert reminder_service.get_shift_group({
+            "start": "21:00", "end": "08:00", "same_day": False, "all_day": False, "summary": "Nig"
+        }) == "Night"
+
+    def test_unknown_summary_falls_back_to_time(self) -> None:
+        # Renamed or manual event → time-based
+        assert reminder_service.get_shift_group({
+            "start": "08:00", "end": "17:00", "all_day": False, "summary": "My custom shift"
+        }) == "AM"
 
 
 class TestGetReminderOffsetMinutes:
@@ -50,9 +79,10 @@ class TestGetReminderTime:
     """Tests for get_reminder_time (shift_date + shift_info -> datetime or None)."""
 
     def test_all_day_uses_reminder_at(self) -> None:
-        # Off day: reminder time comes from get_off_day_reminder_at() (fixed HH:MM)
+        # Off day: reminder time from group's get_reminder_at or get_off_day_reminder_at() (fixed HH:MM)
         shift_date = date(2025, 6, 15)
         mock_config = MagicMock()
+        mock_config.get_reminder_at.return_value = None  # so fallback is used
         mock_config.get_off_day_reminder_at.return_value = "09:30"
         with patch.object(reminder_service, "get_shift_config", return_value=mock_config):
             result = reminder_service.get_reminder_time(shift_date, {"all_day": True})
@@ -87,6 +117,16 @@ class TestGetReminderTime:
         assert result is not None
         assert result == datetime(2025, 6, 15, 20, 0)
 
+    def test_08_00_08_00_uses_am_offset(self) -> None:
+        # Timed 08:00–08:00 is classified as AM → reminder at 08:00 + 30 min = 08:30
+        shift_date = date(2025, 6, 15)
+        result = reminder_service.get_reminder_time(
+            shift_date, {"start": "08:00", "end": "08:00", "all_day": False}
+        )
+        assert result is not None
+        assert result.date() == shift_date
+        assert result.time() == time(8, 30)
+
 
 class TestEventToShiftInfo:
     """Tests for _event_to_shift_info (calendar event -> (date, shift_info))."""
@@ -97,7 +137,8 @@ class TestEventToShiftInfo:
         assert result is not None
         shift_date, shift_info = result
         assert shift_date == date(2025, 6, 15)
-        assert shift_info == {"all_day": True}
+        assert shift_info["all_day"] is True
+        assert "summary" in shift_info  # reminder_job adds summary (None when missing)
 
     def test_timed_event(self) -> None:
         event = {

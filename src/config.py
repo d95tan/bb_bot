@@ -72,15 +72,15 @@ class Settings(BaseSettings):
         default=None,
         description="Redis URL for shared reminder state (e.g. redis://localhost:6379/0). Enables multi-instance."
     )
-    # How often the reminder job runs (seconds). Default 45 min so we catch reminder time promptly.
+    # How often the reminder job runs (seconds). This is what determines how often we check and send — job runs every N seconds.
     reminder_job_interval_seconds: int = Field(
         default=2700,
-        description="How often to check calendar and send due reminders (default 2700 = 45 min). Set lower in dev to test.",
+        description="Interval (seconds) between reminder job runs. We only check/send when the job runs (default 2700 = 45 min). Set lower in dev to test.",
     )
-    # How long (seconds) before we may send the same reminder again if not acknowledged. Default 45 min to avoid spam.
+    # Throttle: after sending a reminder, we won't send the same one again for this many seconds (Redis slot TTL).
     reminder_sent_slot_ttl_seconds: int = Field(
         default=2700,
-        description="TTL for 'reminder sent' slot (default 2700 = 45 min). Re-send at most this often until acknowledged.",
+        description="TTL (seconds) for 'reminder sent' slot. Re-send the same reminder at most this often until acknowledged (default 2700 = 45 min).",
     )
 
     @property
@@ -108,9 +108,133 @@ class ShiftConfig:
         with open(self.config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
-        self._code_mappings = data.get("code_mappings", {})
-        self._color_fallbacks = data.get("color_fallbacks", {})
+        raw_codes = data.get("code_mappings", {})
+        self._code_mappings, self._code_to_category = self._flatten_code_mappings_with_categories(raw_codes)
+        raw_colors = data.get("color_fallbacks", {})
+        self._color_fallbacks, self._color_to_category = self._flatten_color_fallbacks_with_categories(raw_colors)
         self._shift_groups = data.get("shift_groups", {})
+        self._name_to_group = self._build_name_to_group()
+
+    @staticmethod
+    def _is_shift_config(d: dict) -> bool:
+        """True if d looks like a shift entry (has name/start/all_day/description)."""
+        return isinstance(d, dict) and any(
+            k in d for k in ("name", "start", "all_day", "description")
+        )
+
+    def _flatten_code_mappings_with_categories(self, raw: dict) -> tuple[dict, dict[str, str]]:
+        """
+        Flatten code_mappings to code -> config; also return code -> category name.
+        Supports both flat (D0GG: {...}) and one level of categories (AM: { D0GG: {...}, ... }).
+        """
+        out: dict = {}
+        code_to_category: dict[str, str] = {}
+        for key, value in (raw or {}).items():
+            if not isinstance(value, dict):
+                continue
+            if self._is_shift_config(value):
+                out[key] = value
+            else:
+                category = key
+                for sub_code, sub_val in value.items():
+                    if isinstance(sub_val, dict) and self._is_shift_config(sub_val):
+                        out[sub_code] = sub_val
+                        code_to_category[sub_code] = category
+        return out, code_to_category
+
+    @staticmethod
+    def _is_color_config(d: dict) -> bool:
+        """True if d looks like a color fallback entry (has rgb_range or shift)."""
+        return isinstance(d, dict) and ("rgb_range" in d or "shift" in d)
+
+    def _flatten_color_fallbacks_with_categories(self, raw: dict) -> tuple[dict, dict[str, str]]:
+        """
+        Flatten color_fallbacks to color_name -> config; also return color_name -> category.
+        Same structure as code_mappings: flat (light_green: {...}) or one level of categories (AM: { light_green: {...}, ... }).
+        """
+        out: dict = {}
+        color_to_category: dict[str, str] = {}
+        for key, value in (raw or {}).items():
+            if not isinstance(value, dict):
+                continue
+            if self._is_color_config(value):
+                out[key] = value
+            else:
+                category = key
+                for sub_name, sub_val in value.items():
+                    if isinstance(sub_val, dict) and self._is_color_config(sub_val):
+                        out[sub_name] = sub_val
+                        color_to_category[sub_name] = category
+        return out, color_to_category
+
+    @staticmethod
+    def _normalize_shift_group(val: str | bool | None) -> str | None:
+        """Return group key for reminder config. YAML may parse 'off' as bool False."""
+        if val is None:
+            return None
+        if val is False:
+            return "Off"
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        return None
+
+    def _build_name_to_group(self) -> dict[str, str]:
+        """
+        Build mapping from shift display name (e.g. A1, Off, Nig) to group (AM, PM, Night, Off, etc.).
+        Uses explicit shift_group on shift config if set; else category (code_mappings) or time-based.
+        """
+        name_to_group: dict[str, str] = {}
+        for code, config in self._code_mappings.items():
+            name = config.get("name")
+            if not name:
+                continue
+            name = name.strip()
+            explicit = self._normalize_shift_group(config.get("shift_group"))
+            if explicit and self._get_group_config(explicit):
+                name_to_group[name] = explicit
+                continue
+            if getattr(self, "_code_to_category", None):
+                cat = self._code_to_category.get(code)
+                if cat and self._get_group_config(cat):
+                    name_to_group[name] = cat
+                    continue
+            shift_info = {
+                "start": config.get("start"),
+                "end": config.get("end"),
+                "all_day": config.get("all_day", False),
+                "same_day": config.get("same_day", True),
+            }
+            name_to_group[name] = self._classify_by_time(shift_info)
+        for color_name, color_config in self._color_fallbacks.items():
+            shift = color_config.get("shift", {})
+            if not shift or color_config.get("skip", False):
+                continue
+            name = shift.get("name")
+            if not name:
+                continue
+            name = name.strip()
+            explicit = self._normalize_shift_group(shift.get("shift_group") or color_config.get("shift_group"))
+            if explicit and self._get_group_config(explicit):
+                name_to_group[name] = explicit
+                continue
+            if getattr(self, "_color_to_category", None):
+                cat = self._color_to_category.get(color_name)
+                if cat is not None:
+                    if cat is False:
+                        group_key = self._normalize_shift_group(cat)
+                    else:
+                        group_key = str(cat).strip() if isinstance(cat, str) and str(cat).strip() else None
+                    if group_key and self._get_group_config(group_key):
+                        name_to_group[name] = group_key
+                        continue
+            shift_info = {
+                "start": shift.get("start"),
+                "end": shift.get("end"),
+                "all_day": shift.get("all_day", False),
+                "same_day": shift.get("same_day", True),
+            }
+            name_to_group[name] = self._classify_by_time(shift_info)
+        return name_to_group
 
     def reload(self) -> None:
         """Reload configuration from file."""
@@ -197,26 +321,51 @@ class ShiftConfig:
 
         return None
 
-    def get_shift_group(self, shift_info: dict) -> str:
+    def _get_off_group_config(self) -> dict:
+        """Return the Off group config. Handles YAML parsing 'off' as bool False."""
+        off = self._shift_groups.get("Off") or self._shift_groups.get("off")
+        if off is not None and isinstance(off, dict):
+            return off
+        if self._shift_groups.get(False) is not None and isinstance(self._shift_groups[False], dict):
+            return self._shift_groups[False]
+        return next(
+            (
+                v
+                for k, v in self._shift_groups.items()
+                if isinstance(v, dict) and (k is False or (isinstance(k, str) and k.lower() == "off"))
+            ),
+            {},
+        )
+
+    def _classify_by_time(self, shift_info: dict) -> str:
         """
-        Classify shift into group: am, pm, night, or off.
-        Off = all_day; else by shift start time vs shift_groups boundaries.
+        Classify by all_day, rest_day_after_night, then start time. Returns group key (AM, PM, Night, Off).
         """
         if shift_info.get("all_day"):
-            return "off"
+            return "Off"
+        off_config = self._get_off_group_config()
+        rest_start = off_config.get("rest_day_after_night_start")
+        rest_end = off_config.get("rest_day_after_night_end")
+        if rest_start is not None and rest_end is not None:
+            start_str = shift_info.get("start")
+            end_str = shift_info.get("end")
+            if start_str is not None and end_str is not None:
+                s = str(start_str).strip()
+                e = str(end_str).strip()
+                rs = str(rest_start).strip()
+                re = str(rest_end).strip()
+                if s == rs and e == re:
+                    return "Off"
         start_str = shift_info.get("start", "09:00")
-        parts = start_str.split(":")
+        parts = str(start_str).split(":")
         hour = int(parts[0]) if parts else 0
         minute = int(parts[1]) if len(parts) > 1 else 0
         start_minutes = hour * 60 + minute
-
-        # Evaluate in fixed order: am (< noon), pm (noon–7pm), night (>= 7pm)
-        for group_id in ("am", "pm", "night"):
+        for group_id in ("AM", "PM", "Night"):
             group_config = self._shift_groups.get(group_id, {})
             start_before = group_config.get("start_before")
             start_from = group_config.get("start_from")
             if start_before and start_from is None:
-                # am: start_before "12:00"
                 h, m = map(int, str(start_before).split(":"))
                 if start_minutes < h * 60 + m:
                     return group_id
@@ -229,23 +378,39 @@ class ShiftConfig:
                     hi = h2 * 60 + m2
                 if lo <= start_minutes < hi:
                     return group_id
-        return "off"
+        return "Off"
+
+    def get_shift_group(self, shift_info: dict) -> str:
+        """
+        Classify shift into group (AM, PM, Night, Off, Swing, etc.).
+        Uses event name/summary when present and matched; otherwise time-based (AM/PM/Night/Off).
+        """
+        name = (shift_info.get("summary") or shift_info.get("name")) and str(shift_info.get("summary") or shift_info.get("name")).strip()
+        if name and name in self._name_to_group:
+            return self._name_to_group[name]
+        return self._classify_by_time(shift_info)
+
+    def _get_group_config(self, group_id: str) -> dict:
+        """Return config for a group. Uses _get_off_group_config when group_id is Off (YAML may use key False)."""
+        if isinstance(group_id, str) and group_id.lower() == "off":
+            return self._get_off_group_config()
+        return self._shift_groups.get(group_id, {})
 
     def get_reminder_offset_minutes(self, group_id: str) -> Optional[int]:
         """
         Offset in minutes from shift start when to send reminder.
         Positive = after start, negative = before start. None = no offset (use reminder_at if set).
         """
-        group = self._shift_groups.get(group_id, {})
+        group = self._get_group_config(group_id)
         val = group.get("reminder_offset_minutes")
         return int(val) if val is not None else None
 
     def get_off_day_reminder_at(self) -> Optional[str]:
         """
-        Fixed time (HH:MM) to send reminder on off days (all_day events).
-        From shift_groups.off.reminder_at. None = no reminder on off days.
+        Default fixed time (HH:MM) for off-day reminders (fallback when group has no reminder_at).
+        From shift_groups.Off.reminder_at.
         """
-        group = self._shift_groups.get("off", {})
+        group = self._get_off_group_config()
         val = group.get("reminder_at")
         return str(val) if val is not None else None
 
@@ -254,7 +419,7 @@ class ShiftConfig:
         Fixed time (HH:MM) to send reminder for this group, if set.
         From shift_groups.<group_id>.reminder_at. Use when reminder_offset_minutes is null.
         """
-        group = self._shift_groups.get(group_id, {})
+        group = self._get_group_config(group_id)
         val = group.get("reminder_at")
         return str(val) if val is not None else None
 

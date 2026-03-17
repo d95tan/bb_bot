@@ -16,9 +16,11 @@ spam duplicate reminders.
 
 import json
 import logging
+import time as _time
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from src.config import get_settings, get_shift_config
 from src.constants import REMINDER_ACK_TTL_SECONDS
@@ -30,6 +32,8 @@ _REDIS_KEY_PREFIX = "bb_bot:reminder_ack"
 _REDIS_SENT_PREFIX = "bb_bot:reminder_sent"
 
 _pending_reminders: dict[int, datetime] = {}
+# When Redis is not configured: throttle re-sends by slot (key -> last sent timestamp)
+_last_sent_slot: dict[str, float] = {}
 
 
 def _redis_client() -> Optional[Any]:
@@ -88,6 +92,12 @@ def _get_acknowledged_cache() -> set[str]:
     return _get_acknowledged_cache._cache
 
 
+def _today_app_tz() -> date:
+    """Today's date in the application timezone (for reminder/ack logic)."""
+    tz = ZoneInfo(get_settings().timezone)
+    return datetime.now(tz).date()
+
+
 # --- Public API (Redis or file) ---
 
 def get_shift_group(shift_info: dict) -> str:
@@ -111,8 +121,9 @@ def get_reminder_time(shift_date: date, shift_info: dict) -> Optional[datetime]:
     Returns None if no reminder.
     """
     if shift_info.get("all_day"):
-        # Off day: use fixed time from shift_groups.off.reminder_at
-        at_str = get_shift_config().get_off_day_reminder_at()
+        # Off day: use group's reminder_at (e.g. Leave, Off) or fallback to Off's default
+        group = get_shift_group(shift_info)
+        at_str = get_shift_config().get_reminder_at(group) or get_shift_config().get_off_day_reminder_at()
         if not at_str:
             return None
         parts = at_str.split(":")
@@ -172,7 +183,7 @@ def is_within_window(current_time: time, window: tuple[time, time]) -> bool:
 
 def acknowledge_medication(user_id: int) -> None:
     """Mark medication as taken for today; persist to Redis or file."""
-    today = date.today()
+    today = _today_app_tz()
     r = _redis_client()
     if r is not None:
         try:
@@ -194,24 +205,43 @@ def try_acquire_reminder_slot(user_id: int, reminder_dt: datetime) -> bool:
     Try to acquire the right to send this reminder (multi-instance safe).
     Call this before sending; if True, this instance won the race and should send.
     If False, another instance is sending or already sent for this slot — skip.
-    When Redis is not configured, always returns True (single instance).
+    When Redis is not configured, uses in-memory throttle (reminder_sent_slot_ttl_seconds).
     """
-    r = _redis_client()
-    if r is None:
-        return True
     key = _sent_slot_key(user_id, reminder_dt)
     ttl = get_settings().reminder_sent_slot_ttl_seconds
+    r = _redis_client()
+    if r is None:
+        # No Redis: throttle re-sends in process using TTL
+        now = _time.time()
+        # Prune expired entries so the dict doesn't grow forever
+        expired = [k for k, v in _last_sent_slot.items() if (now - v) > ttl]
+        for k in expired:
+            del _last_sent_slot[k]
+        last = _last_sent_slot.get(key)
+        if last is not None and (now - last) < ttl:
+            return False
+        _last_sent_slot[key] = now
+        return True
     try:
         # SET key "1" NX EX TTL: set only if key does not exist; then expire
         return bool(r.set(key, "1", nx=True, ex=ttl))
     except Exception as e:
-        logger.warning("Redis set NX failed: %s", e)
-        return True  # allow send on Redis error to avoid silencing reminders
+        logger.warning("Redis set NX failed (%s), using in-process throttle", e)
+        # Fall back to in-memory throttle so we still respect TTL (no spam every run)
+        now = _time.time()
+        expired = [k for k, v in _last_sent_slot.items() if (now - v) > ttl]
+        for k in expired:
+            del _last_sent_slot[k]
+        last = _last_sent_slot.get(key)
+        if last is not None and (now - last) < ttl:
+            return False
+        _last_sent_slot[key] = now
+        return True
 
 
 def is_medication_acknowledged(user_id: int) -> bool:
     """Check if medication has been acknowledged today (Redis or file)."""
-    today = date.today()
+    today = _today_app_tz()
     r = _redis_client()
     if r is not None:
         try:
@@ -228,7 +258,7 @@ def clear_old_acknowledgments() -> None:
     r = _redis_client()
     if r is not None:
         return
-    today = date.today().isoformat()
+    today = _today_app_tz().isoformat()
     ack = _get_acknowledged_cache()
     kept = {k for k in ack if ":" in k and k.rsplit(":", 1)[-1] == today}
     if len(kept) != len(ack):
