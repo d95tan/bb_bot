@@ -71,6 +71,22 @@ def _event_to_shift_info(event: dict, tz_str: str) -> tuple[date, dict] | None:
     return (shift_date, shift_info)
 
 
+def _should_consider_reminder_for_today(
+    reminder_dt: datetime | None, today: date, now: datetime
+) -> bool:
+    """
+    True if we should consider sending this reminder (reminder is on today and already due).
+    Used so we skip reminders whose date is not today (e.g. overnight night shift seen on day 2).
+    """
+    if reminder_dt is None:
+        return False
+    if reminder_dt.date() != today:
+        return False
+    if now < reminder_dt:
+        return False
+    return True
+
+
 async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Job callback: fetch today's calendar events, compute reminder times,
@@ -116,15 +132,19 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
         shift_date, shift_info = parsed
 
         reminder_dt = reminder_service.get_reminder_time(shift_date, shift_info)
-        if reminder_dt is None:
-            logger.info("Reminder job: no reminder for this shift (off group): %s", shift_info.get("start"))
-            continue
-        if now < reminder_dt:
-            logger.info(
-                "Reminder job: not yet due (reminder at %s, now %s)",
-                reminder_dt.strftime("%H:%M"),
-                now.strftime("%H:%M"),
-            )
+        if not _should_consider_reminder_for_today(reminder_dt, today, now):
+            if reminder_dt is not None and reminder_dt.date() != today:
+                logger.info(
+                    "Reminder job: reminder date %s is not today (%s), skip",
+                    reminder_dt.date().isoformat(),
+                    today.isoformat(),
+                )
+            elif reminder_dt is not None and now < reminder_dt:
+                logger.info(
+                    "Reminder job: not yet due (reminder at %s, now %s)",
+                    reminder_dt.strftime("%H:%M"),
+                    now.strftime("%H:%M"),
+                )
             continue
 
         for user_id in settings.authorized_user_ids:
