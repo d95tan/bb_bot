@@ -128,6 +128,25 @@ class TestGetReminderTime:
         assert result.time() == time(8, 30)
 
 
+class TestAcknowledgmentByShiftDate:
+    """Ack is keyed by shift start date so midnight does not reset night-shift ack."""
+
+    def test_acknowledge_uses_pending_shift_date(self, tmp_path) -> None:
+        ack_file = tmp_path / "reminder_acknowledgments.json"
+        shift_date = date(2025, 6, 16)
+        reminder_dt = datetime(2025, 6, 16, 19, 0)
+        with patch.object(reminder_service, "_ACK_FILE", ack_file):
+            with patch.object(reminder_service, "_redis_client", return_value=None):
+                reminder_service._pending_reminders.clear()
+                reminder_service.register_pending_reminder(42, shift_date, reminder_dt)
+                reminder_service.acknowledge_medication(42)
+                assert reminder_service.is_medication_acknowledged(42, shift_date) is True
+                assert reminder_service.is_medication_acknowledged(42, date(2025, 6, 17)) is False
+                reminder_service._pending_reminders.clear()
+                if hasattr(reminder_service._get_acknowledged_cache, "_cache"):
+                    delattr(reminder_service._get_acknowledged_cache, "_cache")
+
+
 class TestEventToShiftInfo:
     """Tests for _event_to_shift_info (calendar event -> (date, shift_info))."""
 
