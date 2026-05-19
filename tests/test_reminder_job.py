@@ -2,7 +2,11 @@
 
 from datetime import date, datetime
 
-from src.bot.reminder_job import _event_to_shift_info, _should_consider_reminder_for_today
+from src.bot.reminder_job import (
+    _event_to_shift_info,
+    _is_overnight_morning_tail,
+    _should_consider_reminder_for_today,
+)
 
 
 class TestShouldConsiderReminderForToday:
@@ -42,6 +46,26 @@ class TestShouldConsiderReminderForToday:
         today = date(2025, 6, 15)
         now = datetime(2025, 6, 15, 10, 0)
         assert _should_consider_reminder_for_today(reminder_dt, today, now) is False
+
+
+class TestIsOvernightMorningTail:
+    """Morning segments after midnight must not trigger a second reminder."""
+
+    def test_00_00_to_08_00_is_tail(self) -> None:
+        assert _is_overnight_morning_tail({"start": "00:00", "end": "08:00", "all_day": False}) is True
+
+    def test_07_30_to_15_30_is_real_am_shift(self) -> None:
+        assert _is_overnight_morning_tail({
+            "start": "07:30", "end": "15:30", "all_day": False
+        }) is False
+
+    def test_off_after_night_08_00_to_17_00_not_tail(self) -> None:
+        assert _is_overnight_morning_tail({
+            "start": "08:00", "end": "17:00", "all_day": False
+        }) is False
+
+    def test_all_day_not_tail(self) -> None:
+        assert _is_overnight_morning_tail({"all_day": True}) is False
 
 
 class TestOvernightEventParsing:
