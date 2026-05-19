@@ -71,6 +71,29 @@ def _event_to_shift_info(event: dict, tz_str: str) -> tuple[date, dict] | None:
     return (shift_date, shift_info)
 
 
+def _is_overnight_morning_tail(shift_info: dict) -> bool:
+    """
+    True for timed blocks like 00:00–08:00 that finish an overnight shift.
+    These must not get a separate AM-style reminder after midnight.
+    """
+    if shift_info.get("all_day"):
+        return False
+    start_str = shift_info.get("start", "")
+    end_str = shift_info.get("end", "")
+    try:
+        start_parts = start_str.split(":")
+        end_parts = end_str.split(":")
+        sh = int(start_parts[0]) if start_parts else 0
+        eh = int(end_parts[0]) if end_parts else 0
+        em = int(end_parts[1]) if len(end_parts) > 1 else 0
+    except (ValueError, IndexError):
+        return False
+    if sh >= 12:
+        return False
+    end_minutes = eh * 60 + em
+    return end_minutes <= 9 * 60
+
+
 def _should_consider_reminder_for_today(
     reminder_dt: datetime | None, today: date, now: datetime
 ) -> bool:
@@ -131,6 +154,20 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
             continue
         shift_date, shift_info = parsed
 
+        if not shift_info.get("same_day", True) and shift_date < today:
+            logger.info(
+                "Reminder job: overnight shift started %s (before today), skip",
+                shift_date.isoformat(),
+            )
+            continue
+        if _is_overnight_morning_tail(shift_info):
+            logger.info(
+                "Reminder job: morning tail of overnight shift (%s–%s), skip",
+                shift_info.get("start"),
+                shift_info.get("end"),
+            )
+            continue
+
         reminder_dt = reminder_service.get_reminder_time(shift_date, shift_info)
         if not _should_consider_reminder_for_today(reminder_dt, today, now):
             if reminder_dt is not None and reminder_dt.date() != today:
@@ -148,8 +185,12 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
             continue
 
         for user_id in settings.authorized_user_ids:
-            if reminder_service.is_medication_acknowledged(user_id):
-                logger.info("Reminder job: user %s already acknowledged, skip", user_id)
+            if reminder_service.is_medication_acknowledged(user_id, shift_date):
+                logger.info(
+                    "Reminder job: user %s already acknowledged for shift %s, skip",
+                    user_id,
+                    shift_date.isoformat(),
+                )
                 continue
             if not reminder_service.try_acquire_reminder_slot(user_id, reminder_dt):
                 logger.info(
@@ -159,6 +200,9 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 continue
             try:
+                reminder_service.register_pending_reminder(
+                    user_id, shift_date, reminder_dt
+                )
                 keyboard = InlineKeyboardMarkup([
                     [InlineKeyboardButton("✓ I took it", callback_data="reminder_ack")],
                 ])

@@ -32,7 +32,8 @@ _ACK_FILE = Path("data/reminder_acknowledgments.json")
 _REDIS_KEY_PREFIX = "bb_bot:reminder_ack"
 _REDIS_SENT_PREFIX = "bb_bot:reminder_sent"
 
-_pending_reminders: dict[int, datetime] = {}
+# user_id -> (shift_date, reminder_dt) for the last reminder we sent
+_pending_reminders: dict[int, tuple[date, datetime]] = {}
 # When Redis is not configured: throttle re-sends by slot (key -> last sent timestamp)
 _last_sent_slot: dict[str, float] = {}
 
@@ -182,24 +183,41 @@ def is_within_window(current_time: time, window: tuple[time, time]) -> bool:
     return start <= current_time <= end
 
 
-def acknowledge_medication(user_id: int) -> None:
-    """Mark medication as taken for today; persist to Redis or file."""
-    today = _today_app_tz()
+def register_pending_reminder(
+    user_id: int, shift_date: date, reminder_dt: datetime
+) -> None:
+    """Remember which shift reminder we sent (used when user acknowledges)."""
+    _pending_reminders[user_id] = (shift_date, reminder_dt)
+
+
+def acknowledge_medication(user_id: int, shift_date: Optional[date] = None) -> None:
+    """Mark medication as taken for a shift; persist to Redis or file.
+
+    Uses shift_date from the last sent reminder when available, else today.
+    """
+    if shift_date is None and user_id in _pending_reminders:
+        shift_date, _ = _pending_reminders[user_id]
+    if shift_date is None:
+        shift_date = _today_app_tz()
     r = _redis_client()
     if r is not None:
         try:
-            key = _ack_key(user_id, today)
+            key = _ack_key(user_id, shift_date)
             r.set(key, "1", ex=REMINDER_ACK_TTL_SECONDS)
         except Exception as e:
             logger.warning("Redis set failed: %s", e)
     else:
         ack = _get_acknowledged_cache()
-        ack.add(f"{user_id}:{today.isoformat()}")
+        ack.add(f"{user_id}:{shift_date.isoformat()}")
         _save_acknowledged_file(ack)
     if user_id in _pending_reminders:
         del _pending_reminders[user_id]
-    medication_stats.record_taken(user_id, today)
-    logger.info("Medication acknowledged for user %s", user_id)
+    medication_stats.record_taken(user_id, shift_date)
+    logger.info(
+        "Medication acknowledged for user %s (shift date %s)",
+        user_id,
+        shift_date.isoformat(),
+    )
 
 
 def try_acquire_reminder_slot(user_id: int, reminder_dt: datetime) -> bool:
@@ -241,17 +259,20 @@ def try_acquire_reminder_slot(user_id: int, reminder_dt: datetime) -> bool:
         return True
 
 
-def is_medication_acknowledged(user_id: int) -> bool:
-    """Check if medication has been acknowledged today (Redis or file)."""
-    today = _today_app_tz()
+def is_medication_acknowledged(
+    user_id: int, shift_date: Optional[date] = None
+) -> bool:
+    """Check if medication was acknowledged for this shift date (Redis or file)."""
+    if shift_date is None:
+        shift_date = _today_app_tz()
     r = _redis_client()
     if r is not None:
         try:
-            return bool(r.exists(_ack_key(user_id, today)))
+            return bool(r.exists(_ack_key(user_id, shift_date)))
         except Exception as e:
             logger.warning("Redis exists failed: %s", e)
             return False
-    key = f"{user_id}:{today.isoformat()}"
+    key = f"{user_id}:{shift_date.isoformat()}"
     return key in _get_acknowledged_cache()
 
 
