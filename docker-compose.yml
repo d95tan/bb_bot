@@ -21,6 +21,7 @@ services:
       - redis
     volumes:
       - ./debug:/app/debug
+      - ./data:/app/data
       - ./config:/app/config:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]

@@ -69,7 +69,16 @@ REMINDER_MESSAGE = (
     "Tap the button below when done, or use /took_medication"
 )
 REMINDER_ACK_EDIT_TEXT = "💊 _Acknowledged._"
+REMINDER_ACK_EDIT_TEXT_WITH_STREAK = "💊 _Acknowledged._ 🔥 {streak} day streak."
 TOOK_MEDICATION_REPLY = "✅ Recorded. Stay safe!"
+TOOK_MEDICATION_REPLY_WITH_STREAK = "✅ Recorded. Stay safe! 🔥 {streak} day streak."
+
+# medication_stats command
+MEDICATION_STATS_HEADER = "📊 *Medication stats*"
+MEDICATION_STATS_CURRENT = "• Current streak: {n} day{s}"
+MEDICATION_STATS_LONGEST = "• Longest streak: {n} day{s}"
+MEDICATION_STATS_RATE = "• Adherence (last 30 days): {pct:.0f}%"
+MEDICATION_STATS_NO_DATA = "No medication records yet. Use the reminder button or /took_medication when you take it."
 
 # ----- Calendar status (for _build_calendar_status) -----
 CALENDAR_STATUS_DRY_RUN = "🧪 DRY-RUN MODE: Calendar uploads disabled"
