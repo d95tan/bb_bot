@@ -743,7 +743,8 @@ def get_dominant_color(image: Image.Image) -> tuple[int, int, int]:
     """
     # Resize for faster processing
     small_image = image.resize((50, 50))
-    pixels = list(small_image.getdata())
+    get_pixels = getattr(small_image, "get_flattened_data", small_image.getdata)
+    pixels = list(get_pixels())
 
     # Filter out white/near-white and black pixels
     colored_pixels = [
