@@ -1,12 +1,35 @@
-# Dev override: build with watchfiles, run bot with hot-reload
+# Dev override: hot-reload API + user-bot
 services:
-  bb_bot:
+  api:
     build:
       context: .
       args:
         INSTALL_DEV: "true"
-    command: ["sh", "-c", "exec python -m watchfiles --filter python 'python -m src.main' src config"]
+    command:
+      [
+        "sh",
+        "-c",
+        "exec python -m watchfiles --filter python 'python -m src.api.main' src config",
+      ]
     volumes:
       - ./src:/app/src
       - ./config:/app/config:ro
       - ./debug:/app/debug
+      - ./data:/app/data
+
+  user-bot:
+    build:
+      context: .
+      args:
+        INSTALL_DEV: "true"
+    command:
+      [
+        "sh",
+        "-c",
+        "exec python -m watchfiles --filter python 'python -m src.main' src config",
+      ]
+    volumes:
+      - ./src:/app/src
+      - ./config:/app/config:ro
+      - ./debug:/app/debug
+      - ./data:/app/data

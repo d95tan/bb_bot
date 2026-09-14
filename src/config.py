@@ -30,6 +30,16 @@ class Settings(BaseSettings):
         """Parse telegram_user_ids into a list of integers."""
         return [int(uid.strip()) for uid in self.telegram_user_ids.split(",") if uid.strip()]
 
+    # Backend API (bot → FastAPI). Shared secret authenticates the user-bot client.
+    api_key: str = Field(
+        default="dev-api-key-change-me",
+        description="API key the Telegram user-bot sends as X-API-Key",
+    )
+    api_base_url: str = Field(
+        default="http://localhost:8000",
+        description="Base URL of the FastAPI backend (used by the Telegram bot process)",
+    )
+
     # Google Calendar
     google_client_id: str = Field(..., description="Google OAuth client ID")
     google_client_secret: str = Field(...,

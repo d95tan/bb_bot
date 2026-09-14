@@ -69,6 +69,8 @@ Add the following environment variables in the "Container Environment Variables"
 | ---------------------- | ------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`   | Your Telegram Bot Token                     |
 | `TELEGRAM_USER_IDS`    | Your Telegram User ID(s), comma-separated   |
+| `API_KEY`              | Shared secret the user-bot sends to the API |
+| `API_BASE_URL`         | `http://api:8000` when API is another container |
 | `GOOGLE_CLIENT_ID`     | Your Google OAuth Client ID                 |
 | `GOOGLE_CLIENT_SECRET` | Your Google OAuth Client Secret             |
 | `GOOGLE_REFRESH_TOKEN` | The token you generated in step 2           |
@@ -91,8 +93,10 @@ Optional: To save debug images
 
 **Reminder acknowledgments:**
 
-- **With docker-compose:** Redis runs in the same stack (`redis` service). The bot is given `REDIS_URL=redis://redis:6379/0` automatically. Reminder state is stored in the `redis_data` volume and survives restarts.
-- **Without compose (e.g. TrueNAS custom app):** Either install Redis separately and set `REDIS_URL` (e.g. `redis://redis-host:6379/0`), or leave `REDIS_URL` unset to use file-based storage (`data/reminder_acknowledgments.json`); then mount a volume for `/app/data` if you want persistence.
+- **With docker-compose:** Redis, FastAPI (`api`), and Telegram user-bot (`user-bot`) run in the same stack. The API owns OCR, calendar sync, and medication reminders; the bot is a thin Telegram client. Reminder state is stored in the `redis_data` volume and survives restarts.
+- **Without compose (e.g. TrueNAS custom app):** Run **two** containers from the same image — one with `python -m src.api.main`, one with `python -m src.main` — sharing `/app/data` and Redis. Set `API_BASE_URL` on the bot to reach the API. Or leave `REDIS_URL` unset on the API for file-based storage (`data/reminder_acknowledgments.json`) and mount `/app/data` for persistence.
+
+**Note:** A single container that only runs `python -m src.main` is no longer enough; the API process must be running for uploads, schedule, reminders, and medication stats.
 
 ## 4. Troubleshooting
 

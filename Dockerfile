@@ -33,5 +33,5 @@ ENV BUILD_VERSION=${BUILD_VERSION}
 # Create directory for debug output (optional)
 RUN mkdir -p /app/debug
 
-# Run the bot
+# Default image entry: Telegram user-bot. Compose overrides API to src.api.main.
 CMD ["python", "-m", "src.main"]
