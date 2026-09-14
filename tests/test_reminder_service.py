@@ -152,7 +152,7 @@ class TestEventToShiftInfo:
 
     def test_all_day_event(self) -> None:
         event = {"start": {"date": "2025-06-15"}, "end": {"date": "2025-06-16"}}
-        result = _event_to_shift_info(event, "Australia/Sydney")
+        result = _event_to_shift_info(event, "Asia/Singapore")
         assert result is not None
         shift_date, shift_info = result
         assert shift_date == date(2025, 6, 15)
@@ -161,10 +161,10 @@ class TestEventToShiftInfo:
 
     def test_timed_event(self) -> None:
         event = {
-            "start": {"dateTime": "2025-06-15T07:30:00+10:00"},
-            "end": {"dateTime": "2025-06-15T15:30:00+10:00"},
+            "start": {"dateTime": "2025-06-15T07:30:00+08:00"},
+            "end": {"dateTime": "2025-06-15T15:30:00+08:00"},
         }
-        result = _event_to_shift_info(event, "Australia/Sydney")
+        result = _event_to_shift_info(event, "Asia/Singapore")
         assert result is not None
         shift_date, shift_info = result
         assert shift_date == date(2025, 6, 15)
@@ -175,10 +175,10 @@ class TestEventToShiftInfo:
 
     def test_timed_event_overnight(self) -> None:
         event = {
-            "start": {"dateTime": "2025-06-15T21:00:00+10:00"},
-            "end": {"dateTime": "2025-06-16T08:00:00+10:00"},
+            "start": {"dateTime": "2025-06-15T21:00:00+08:00"},
+            "end": {"dateTime": "2025-06-16T08:00:00+08:00"},
         }
-        result = _event_to_shift_info(event, "Australia/Sydney")
+        result = _event_to_shift_info(event, "Asia/Singapore")
         assert result is not None
         shift_date, shift_info = result
         assert shift_date == date(2025, 6, 15)
