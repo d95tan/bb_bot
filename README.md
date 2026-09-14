@@ -357,6 +357,8 @@ bb_bot/
 
 ## 🧑‍💻 Development
 
+Collate work on `develop`, then open a pull request into `main` to publish. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching strategy and when to bump the version.
+
 ### 🧪 Running Tests
 
 ```bash
