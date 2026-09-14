@@ -110,6 +110,16 @@ def _should_consider_reminder_for_today(
     return True
 
 
+def _events_or_off_day(events: list[dict], today: date) -> list[dict]:
+    """
+    If the calendar has no events for today, return a synthetic all-day Off event
+    so the job uses Off-day reminder timing.
+    """
+    if events:
+        return events
+    return [{"start": {"date": today.isoformat()}, "summary": "Off"}]
+
+
 async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Job callback: fetch today's calendar events, compute reminder times,
@@ -134,11 +144,11 @@ async def check_and_send_reminders(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not events:
         logger.info(
-            "Reminder job: no events for today (%s %s), skipping.",
+            "Reminder job: no events for today (%s %s), using Off-day reminder.",
             today.isoformat(),
             settings.timezone,
         )
-        return
+    events = _events_or_off_day(events, today)
 
     logger.info(
         "Reminder job: %s event(s) for %s, now=%s",

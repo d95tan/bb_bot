@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # Timezone
     timezone: str = Field(
-        default="Australia/Sydney",
+        default="Asia/Singapore",
         description="Timezone for calendar events"
     )
 
