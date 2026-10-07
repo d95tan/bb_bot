@@ -5,17 +5,15 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    # Optional: persist to disk so acks survive container restarts
     command: redis-server --appendonly yes
 
-  bb_bot:
+  api:
     build: .
-    container_name: bb_bot
+    container_name: bb_bot_api
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      # Use in-compose Redis for reminder state (override in .env if using external Redis)
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis
@@ -23,11 +21,38 @@ services:
       - ./debug:/app/debug
       - ./data:/app/data
       - ./config:/app/config:ro
+    ports:
+      - "8000:8000"
+    command: ["python", "-m", "src.api.main"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  user-bot:
+    build: .
+    container_name: bb_bot_user
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./debug:/app/debug
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    command: ["python", "-m", "src.main"]
 
 volumes:
   redis_data:

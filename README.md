@@ -161,22 +161,22 @@ Two ways to run and test on your machine.
 
 ### Option A: 🐳 Docker Compose (simplest)
 
-Runs the bot and Redis together; no need to install Python or Tesseract locally for integration testing.
+Runs the **API**, **Telegram user-bot**, and Redis together.
 
-1. **Prepare `.env`** (copy from `env.example`, fill in `TELEGRAM_BOT_TOKEN`, `TELEGRAM_USER_IDS`, Google credentials). You still need to run `telebot-auth` once (e.g. in a local venv) to get `GOOGLE_REFRESH_TOKEN`, then put it in `.env`.
+1. **Prepare `.env`** (copy from `env.example`, fill in `TELEGRAM_BOT_TOKEN`, `TELEGRAM_USER_IDS`, Google credentials, and set a strong `API_KEY`). You still need to run `telebot-auth` once (e.g. in a local venv) to get `GOOGLE_REFRESH_TOKEN`, then put it in `.env`.
 2. **Start the stack:**
 
    ```bash
    docker compose up -d
    ```
 
-   This starts Redis and the bot. The bot uses `REDIS_URL=redis://redis:6379/0` automatically.
-3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f bb_bot`.
+   This starts Redis, the FastAPI backend (OCR, calendar, reminders), and the Telegram user-bot. Compose sets `REDIS_URL` and `API_BASE_URL=http://api:8000` for the bot.
+3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f api user-bot`.
 4. **Stop:** `docker compose down`. Add `-v` to remove the Redis volume and lose reminder state.
 
-### Option B: 🏠 Run the bot locally (venv)
+### Option B: 🏠 Run locally (venv)
 
-Useful for debugging, OCR tweaks, or running tests.
+Useful for debugging, OCR tweaks, or running tests. You need **two processes**: API + bot.
 
 1. **Prerequisites:** Python 3.11+, Tesseract installed, venv created, `pip install -e ".[dev]"`.
 2. **Redis (optional):** To test reminder + Redis locally, start Redis:
@@ -185,22 +185,29 @@ Useful for debugging, OCR tweaks, or running tests.
    docker run -d -p 6379:6379 --name redis redis:7-alpine
    ```
 
-   Then in `.env` set `REDIS_URL=redis://localhost:6379/0`. If you omit `REDIS_URL`, the bot uses file-based reminder storage under `data/`.
+   Then in `.env` set `REDIS_URL=redis://localhost:6379/0`. If you omit `REDIS_URL`, the API uses file-based reminder storage under `data/`.
 
 3. **Google token:** Run `telebot-auth` once and set `GOOGLE_REFRESH_TOKEN` in `.env`.
-4. **Run the bot:**
+4. **Run the API** (owns OCR, calendar, reminders):
 
    ```bash
-   telebot          # or: python -m src.main
+   telebot-api          # or: python -m src.api.main
+   ```
+
+5. **Run the Telegram bot** (in another terminal; talks to the API):
+
+   ```bash
+   # Ensure API_BASE_URL=http://localhost:8000 and API_KEY match .env
+   telebot              # or: python -m src.main
    # or with reload:
    telebot-dev
    ```
 
-5. **Test:** Send a schedule image to the bot in Telegram. For OCR-only tests without the bot: `python scripts/test_ocr.py sample_images/01_2026.jpg` (run from repo root with `PYTHONPATH=.` or install the package).
+6. **Test:** Send a schedule image to the bot in Telegram. For OCR-only tests without the bot: `python scripts/test_ocr.py sample_images/01_2026.jpg` (run from repo root with `PYTHONPATH=.` or install the package).
 
 ### ✅ Quick checklist
 
-- [ ] `.env` filled (bot token, user IDs, Google client id/secret, refresh token)
+- [ ] `.env` filled (bot token, user IDs, `API_KEY`, Google client id/secret, refresh token)
 - [ ] `telebot-auth` run and refresh token in `.env`
 - [ ] Tesseract installed (for local run) or use Docker
 - [ ] Redis: use Docker Compose, or `docker run redis` + `REDIS_URL`, or leave unset for file storage
@@ -315,7 +322,7 @@ To calibrate:
 docker compose up -d
 
 # View logs
-docker compose logs -f bb_bot
+docker compose logs -f api user-bot
 
 # Stop
 docker compose down
@@ -331,7 +338,8 @@ For local development with hot-reload (code changes restart the bot):
 
 ```bash
 docker build -t bb-bot .
-docker run -d --env-file .env -v ./config:/app/config:ro bb-bot
+# Prefer compose (api + user-bot + redis). Single-container bot-only is not enough.
+docker compose up -d
 ```
 
 ## 📁 Project Structure
@@ -339,17 +347,28 @@ docker run -d --env-file .env -v ./config:/app/config:ro bb-bot
 ```text
 bb_bot/
 ├── src/                      # Application code
-│   ├── main.py               # Entry point
+│   ├── main.py               # Telegram user-bot entry (API client)
+│   ├── api/                  # FastAPI backend
+│   │   ├── main.py           # Process entry (uvicorn)
+│   │   ├── app.py            # create_app()
+│   │   ├── lifespan.py       # startup/shutdown + reminder worker
+│   │   ├── deps.py           # shared dependencies (API key)
+│   │   ├── schemas.py        # request/response models
+│   │   ├── worker.py         # reminder send loop
+│   │   └── routers/          # health, schedules, medication
+│   ├── app/                  # Channel-agnostic use cases
+│   ├── clients/              # HTTP client for the bot → API
+│   ├── notifiers/            # Outbound reminder adapters (Telegram)
 │   ├── config.py             # Settings, shift/calendar config
 │   ├── auth_setup.py         # One-time Google OAuth setup
-│   ├── bot/                  # Handlers, commands, replies, reminder job
-│   └── services/             # OCR, Google Calendar, reminder logic
+│   ├── bot/                  # Thin Telegram handlers, commands, replies
+│   └── services/             # OCR, Calendar, reminders, accounts, stats
 ├── config/                   # shifts.yaml, grid.yaml — customize here
 ├── scripts/                  # auth_setup, test_ocr, wipe_calendar, docker-dev.ps1
 ├── tests/                    # Unit and OCR accuracy tests
 ├── .github/workflows/        # CI: docker-publish, pr-validation
 ├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml        # api + user-bot + redis
 ├── docker-compose.dev.yml    # Dev override (hot-reload)
 ├── pyproject.toml
 └── env.example               # Copy to .env and fill in
