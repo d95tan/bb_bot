@@ -1,7 +1,6 @@
 services:
   redis:
     image: redis:7-alpine
-    container_name: bb_bot_redis
     restart: unless-stopped
     volumes:
       - redis_data:/data
@@ -9,7 +8,6 @@ services:
 
   api:
     build: .
-    container_name: bb_bot_api
     restart: unless-stopped
     env_file:
       - .env
@@ -22,7 +20,7 @@ services:
       - ./data:/app/data
       - ./config:/app/config:ro
     ports:
-      - "8000:8000"
+      - "${API_HOST_PORT:-8000}:8000"
     command: ["python", "-m", "src.api.main"]
     healthcheck:
       test:
@@ -38,7 +36,6 @@ services:
 
   user-bot:
     build: .
-    container_name: bb_bot_user
     restart: unless-stopped
     env_file:
       - .env
@@ -53,6 +50,24 @@ services:
       - ./data:/app/data
       - ./config:/app/config:ro
     command: ["python", "-m", "src.main"]
+
+  admin-bot:
+    build: .
+    restart: unless-stopped
+    profiles: ["admin"]
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./debug:/app/debug
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    command: ["python", "-m", "src.admin_bot.main"]
 
 volumes:
   redis_data:

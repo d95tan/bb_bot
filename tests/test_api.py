@@ -6,7 +6,7 @@ External use cases are mocked where they would hit Calendar/OCR.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -20,6 +20,7 @@ from src.config import Settings
 
 API_KEY = "test-api-key"
 AUTH_USER = 424242
+ADMIN_USER = 111111
 
 
 def _make_settings(**overrides) -> Settings:
@@ -28,6 +29,8 @@ def _make_settings(**overrides) -> Settings:
         "telegram_bot_token": "test-token",
         "telegram_user_ids": str(AUTH_USER),
         "api_key": API_KEY,
+        "admin_telegram_bot_token": "admin-token",
+        "admin_telegram_user_ids": str(ADMIN_USER),
         "google_client_id": "cid",
         "google_client_secret": "csecret",
         "google_refresh_token": "refresh-token",
@@ -43,7 +46,8 @@ def _make_settings(**overrides) -> Settings:
 def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Isolate settings + DBs and skip the reminder background worker."""
     import src.config as config_mod
-    from src.services import accounts, medication_stats, reminder_service
+    from src.app import admin as admin_app
+    from src.services import accounts, admin_audit, medication_stats, reminder_sends, reminder_service
 
     settings = _make_settings()
     monkeypatch.setattr(config_mod, "_settings", settings)
@@ -58,6 +62,9 @@ def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         reminder_service, "_today_app_tz", lambda: date(2025, 6, 15)
     )
     monkeypatch.setattr(reminder_service, "_ACK_FILE", tmp_path / "acks.json")
+    monkeypatch.setattr(reminder_sends, "_DB_PATH", tmp_path / "reminder_sends.db")
+    monkeypatch.setattr(admin_audit, "_AUDIT_FILE", tmp_path / "admin_audit.jsonl")
+    monkeypatch.setattr(admin_app, "DATA_DIR", tmp_path / "data_dir")
     reminder_service._pending_reminders.clear()
     if hasattr(reminder_service._get_acknowledged_cache, "_cache"):
         delattr(reminder_service._get_acknowledged_cache, "_cache")
@@ -78,6 +85,13 @@ def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 def _auth(_client: TestClient) -> dict:
     return {"X-API-Key": API_KEY}
+
+
+def _admin(_client: TestClient | None = None) -> dict:
+    return {
+        "X-API-Key": API_KEY,
+        "X-Admin-Telegram-User-Id": str(ADMIN_USER),
+    }
 
 
 class TestHealth:
@@ -350,3 +364,202 @@ class TestMedicationAckAndStats:
         body = stats.json()
         assert body["current_streak"] >= 1
         assert body["longest_streak"] >= 1
+
+
+class TestAdminRoutes:
+    def test_admin_requires_api_key(self, api_env) -> None:
+        client, _ = api_env
+        response = client.get(
+            "/admin/health",
+            headers={"X-Admin-Telegram-User-Id": str(ADMIN_USER)},
+        )
+        assert response.status_code == 401
+
+    def test_admin_requires_admin_identity(self, api_env) -> None:
+        client, _ = api_env
+        response = client.get("/admin/health", headers=_auth(client))
+        assert response.status_code == 403
+
+    def test_wrong_admin_id_rejected(self, api_env) -> None:
+        client, _ = api_env
+        response = client.get(
+            "/admin/health",
+            headers={
+                "X-API-Key": API_KEY,
+                "X-Admin-Telegram-User-Id": "999",
+            },
+        )
+        assert response.status_code == 403
+
+    def test_health(self, api_env) -> None:
+        client, _ = api_env
+        response = client.get("/admin/health", headers=_admin())
+        assert response.status_code == 200
+        body = response.json()
+        assert "version" in body
+        assert body["calendar_configured"] is True
+        assert body["data_dir_writable"] is True
+
+    def test_patch_dry_run_then_apply(self, api_env) -> None:
+        client, _ = api_env
+        preview = client.post(
+            "/admin/medication/patch",
+            headers=_admin(),
+            json={
+                "start_date": "2025-06-14",
+                "end_date": "2025-06-15",
+                "note": "outage",
+                "dry_run": True,
+            },
+        )
+        assert preview.status_code == 200
+        body = preview.json()
+        assert body["dry_run"] is True
+        assert body["streak_before"] == 0
+        assert body["streak_after"] == 2
+        assert body["missing"] == ["2025-06-14", "2025-06-15"]
+
+        applied = client.post(
+            "/admin/medication/patch",
+            headers=_admin(),
+            json={
+                "start_date": "2025-06-14",
+                "end_date": "2025-06-15",
+                "note": "outage",
+                "dry_run": False,
+            },
+        )
+        assert applied.status_code == 200
+        body = applied.json()
+        assert body["dry_run"] is False
+        assert body["applied"] == ["2025-06-14", "2025-06-15"]
+        assert body["streak_after"] == 2
+
+        stats = client.get(
+            "/admin/medication/stats",
+            headers=_admin(),
+            params={"days": 3},
+        )
+        assert stats.status_code == 200
+        sbody = stats.json()
+        assert sbody["current_streak"] == 2
+        assert sbody["days"] == 3
+        by_day = {row["date"]: row["taken"] for row in sbody["day_by_day"]}
+        assert by_day["2025-06-13"] is False
+        assert by_day["2025-06-14"] is True
+        assert by_day["2025-06-15"] is True
+
+        audit = client.get("/admin/audit", headers=_admin())
+        assert audit.status_code == 200
+        assert audit.json()["entries"][0]["action"] == "patch"
+
+    def test_patch_future_date_rejected(self, api_env) -> None:
+        client, _ = api_env
+        response = client.post(
+            "/admin/medication/patch",
+            headers=_admin(),
+            json={"start_date": "2025-06-16", "dry_run": True},
+        )
+        assert response.status_code == 400
+
+    def test_unlog_clears_ack_and_stats(self, api_env) -> None:
+        client, _ = api_env
+        from src.services import reminder_service
+
+        patch = client.post(
+            "/admin/medication/patch",
+            headers=_admin(),
+            json={"start_date": "2025-06-15", "dry_run": False},
+        )
+        assert patch.status_code == 200
+        assert reminder_service.is_medication_acknowledged(AUTH_USER, date(2025, 6, 15))
+
+        unlog = client.post(
+            "/admin/medication/unlog",
+            headers=_admin(),
+            json={"start_date": "2025-06-15", "dry_run": False},
+        )
+        assert unlog.status_code == 200
+        assert unlog.json()["applied"] == ["2025-06-15"]
+        assert unlog.json()["streak_after"] == 0
+        assert not reminder_service.is_medication_acknowledged(
+            AUTH_USER, date(2025, 6, 15)
+        )
+
+    def test_reminder_status_uses_durable_log(self, api_env) -> None:
+        client, _ = api_env
+        from src.services.reminder_sends import SOURCE_JOB, record_send
+
+        record_send(
+            AUTH_USER,
+            date(2025, 6, 15),
+            datetime(2025, 6, 15, 9, 30),
+            SOURCE_JOB,
+            sent_at=datetime(2025, 6, 15, 1, 30, tzinfo=timezone.utc),
+        )
+        response = client.get("/admin/reminders/status", headers=_admin())
+        assert response.status_code == 200
+        body = response.json()
+        assert body["today"] == "2025-06-15"
+        assert body["timezone"] == "Asia/Singapore"
+        assert body["acknowledged"] is False
+        assert len(body["sends"]) == 1
+        assert body["sends"][0]["source"] == "job"
+        assert "2025-06-15T01:30:00+00:00" in body["sends"][0]["sent_at"]
+
+    def test_trigger_reminder(self, api_env, monkeypatch) -> None:
+        client, _ = api_env
+        notifier = AsyncMock()
+        notifier.send_medication_reminder = AsyncMock()
+        monkeypatch.setattr("src.app.admin.TelegramNotifier", lambda: notifier)
+
+        class _Cal:
+            async def get_shifts_for_date(self, target_date):
+                return []
+
+        monkeypatch.setattr("src.app.admin.CalendarService", _Cal)
+
+        response = client.post("/admin/reminders/trigger", headers=_admin())
+        assert response.status_code == 200
+        body = response.json()
+        assert body["sent"] == 1
+        assert body["already_acknowledged"] is False
+        notifier.send_medication_reminder.assert_awaited()
+        from src.services import reminder_sends
+
+        conn = reminder_sends._get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT source FROM reminder_sends WHERE account_id = ?",
+                (AUTH_USER,),
+            ).fetchall()
+        finally:
+            conn.close()
+        assert rows == [("admin",)]
+
+    def test_export_csv(self, api_env) -> None:
+        client, _ = api_env
+        client.post(
+            "/admin/medication/patch",
+            headers=_admin(),
+            json={"start_date": "2025-06-15", "dry_run": False},
+        )
+        response = client.get(
+            "/admin/export", headers=_admin(), params={"days": 2}
+        )
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        lines = response.text.strip().splitlines()
+        assert lines[0] == "date,taken"
+        assert "2025-06-15,1" in response.text
+        assert "2025-06-14,0" in response.text
+
+    def test_shifts_without_calendar(self, api_env, monkeypatch) -> None:
+        client, _ = api_env
+        new_settings = _make_settings(google_refresh_token=None)
+        monkeypatch.setattr("src.api.routers.admin.get_settings", lambda: new_settings)
+        monkeypatch.setattr("src.app.admin.get_settings", lambda: new_settings)
+        response = client.get("/admin/shifts", headers=_admin())
+        assert response.status_code == 200
+        assert response.json()["calendar_configured"] is False
+        assert response.json()["events"] == []

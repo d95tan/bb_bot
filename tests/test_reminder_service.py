@@ -1,7 +1,10 @@
 """Unit tests for reminder service and reminder job helpers."""
 
 from datetime import date, datetime, time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.services import reminder_service
 from src.bot.reminder_job import _event_to_shift_info
@@ -191,3 +194,23 @@ class TestEventToShiftInfo:
     def test_invalid_date_returns_none(self) -> None:
         event = {"start": {"date": "not-a-date"}, "end": {"date": "2025-06-16"}}
         assert _event_to_shift_info(event, "UTC") is None
+
+
+class TestClearAcknowledgment:
+    def test_file_store_clears_ack(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(reminder_service, "_ACK_FILE", tmp_path / "acks.json")
+        monkeypatch.setattr(reminder_service, "_redis_client", lambda: None)
+        monkeypatch.setattr(
+            "src.services.medication_stats.record_taken", lambda *a, **k: None
+        )
+        if hasattr(reminder_service._get_acknowledged_cache, "_cache"):
+            delattr(reminder_service._get_acknowledged_cache, "_cache")
+        reminder_service._pending_reminders.clear()
+
+        day = date(2025, 6, 15)
+        reminder_service.acknowledge_medication(1, day)
+        assert reminder_service.is_medication_acknowledged(1, day)
+        reminder_service.clear_acknowledgment(1, day)
+        assert not reminder_service.is_medication_acknowledged(1, day)

@@ -44,7 +44,14 @@ def _get_connection() -> sqlite3.Connection:
 
 
 def record_taken(user_id: int, d: date | None = None) -> None:
-    """Record that the user took medication on date d (default: today app timezone). Idempotent."""
+    """
+    Args:
+     user_id(int): Account id (v1: Telegram user id).
+     d(date | None): Date taken. Defaults to today in the app timezone.
+
+    Returns:
+     None
+    """
     if d is None:
         d = _today_app_tz()
     date_str = d.isoformat()
@@ -62,27 +69,140 @@ def record_taken(user_id: int, d: date | None = None) -> None:
         logger.warning("Failed to record medication taken for user %s: %s", user_id, e)
 
 
-def get_current_streak(user_id: int) -> int:
-    """Consecutive days ending today (today, yesterday, ...). Returns 0 if today not taken."""
-    today = _today_app_tz()
+def remove_taken(user_id: int, d: date) -> bool:
+    """
+    Args:
+     user_id(int): Account id.
+     d(date): Date to un-log.
+
+    Returns:
+     bool: True if a row was deleted.
+    """
+    date_str = d.isoformat()
     try:
         conn = _get_connection()
         try:
-            row = conn.execute(
-                "SELECT date FROM medication_taken WHERE user_id = ? ORDER BY date DESC",
-                (user_id,),
-            ).fetchall()
-            dates = {r[0] for r in row}
-            if today.isoformat() not in dates:
-                return 0
-            streak = 0
-            d = today
-            while d.isoformat() in dates:
-                streak += 1
-                d -= timedelta(days=1)
-            return streak
+            cursor = conn.execute(
+                "DELETE FROM medication_taken WHERE user_id = ? AND date = ?",
+                (user_id, date_str),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
         finally:
             conn.close()
+    except Exception as e:
+        logger.warning(
+            "Failed to remove medication taken for user %s on %s: %s",
+            user_id,
+            date_str,
+            e,
+        )
+        return False
+
+
+def list_taken_dates(user_id: int, start: date, end: date) -> list[date]:
+    """
+    Args:
+     user_id(int): Account id.
+     start(date): Inclusive window start.
+     end(date): Inclusive window end.
+
+    Returns:
+     list[date]: Taken dates in the window, ascending.
+    """
+    try:
+        conn = _get_connection()
+        try:
+            rows = conn.execute(
+                """
+                SELECT date FROM medication_taken
+                WHERE user_id = ? AND date >= ? AND date <= ?
+                ORDER BY date ASC
+                """,
+                (user_id, start.isoformat(), end.isoformat()),
+            ).fetchall()
+            return [date.fromisoformat(r[0]) for r in rows]
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning("Failed to list taken dates for user %s: %s", user_id, e)
+        return []
+
+
+def get_day_statuses(user_id: int, days: int = 30) -> list[tuple[date, bool]]:
+    """
+    Args:
+     user_id(int): Account id.
+     days(int): Window length including today.
+
+    Returns:
+     list[tuple[date, bool]]: Each day in the window and whether it was taken.
+    """
+    today = _today_app_tz()
+    start = today - timedelta(days=days - 1)
+    taken = set(list_taken_dates(user_id, start, today))
+    return [
+        (start + timedelta(days=i), (start + timedelta(days=i)) in taken)
+        for i in range(days)
+    ]
+
+
+def _all_taken_iso(user_id: int) -> set[str]:
+    """Return all taken dates for a user as ISO strings."""
+    try:
+        conn = _get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT date FROM medication_taken WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
+            return {r[0] for r in rows}
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning("Failed to load taken dates for user %s: %s", user_id, e)
+        return set()
+
+
+def _streak_ending_today(dates: set[str], today: date) -> int:
+    """Consecutive days ending today from an ISO-date set. 0 if today missing."""
+    if today.isoformat() not in dates:
+        return 0
+    streak = 0
+    d = today
+    while d.isoformat() in dates:
+        streak += 1
+        d -= timedelta(days=1)
+    return streak
+
+
+def preview_current_streak(
+    user_id: int,
+    add_dates: list[date] | None = None,
+    remove_dates: list[date] | None = None,
+) -> int:
+    """
+    Args:
+     user_id(int): Account id.
+     add_dates(list[date] | None): Dates hypothetically logged.
+     remove_dates(list[date] | None): Dates hypothetically un-logged.
+
+    Returns:
+     int: Current streak after the hypothetical changes (today must be taken).
+    """
+    today = _today_app_tz()
+    dates = _all_taken_iso(user_id)
+    for d in add_dates or []:
+        dates.add(d.isoformat())
+    for d in remove_dates or []:
+        dates.discard(d.isoformat())
+    return _streak_ending_today(dates, today)
+
+
+def get_current_streak(user_id: int) -> int:
+    """Consecutive days ending today (today, yesterday, ...). Returns 0 if today not taken."""
+    try:
+        return _streak_ending_today(_all_taken_iso(user_id), _today_app_tz())
     except Exception as e:
         logger.warning("Failed to get current streak for user %s: %s", user_id, e)
         return 0
