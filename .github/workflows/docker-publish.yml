@@ -2,7 +2,7 @@ name: Docker Build and Publish
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "develop" ]
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "main", "master" ]
@@ -55,6 +55,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/develop' }}
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
@@ -73,6 +74,8 @@ jobs:
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" = "push" ]; then
             echo "version=${{ steps.pyproject_version.outputs.version }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            echo "version=${{ steps.pyproject_version.outputs.version }}-staging" >> $GITHUB_OUTPUT
           else
             echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
           fi
@@ -84,6 +87,9 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.pyproject_version.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+          if [ "${{ github.ref }}" = "refs/heads/develop" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging" >> $GITHUB_OUTPUT
           fi
           echo "EOF" >> $GITHUB_OUTPUT
 

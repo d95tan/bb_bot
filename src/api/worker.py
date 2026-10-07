@@ -10,6 +10,7 @@ from src.bot.replies import REMINDER_MESSAGE
 from src.config import get_settings
 from src.notifiers.telegram import TelegramNotifier
 from src.services.accounts import seed_authorized_accounts
+from src.services.reminder_sends import SOURCE_JOB, record_send
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,12 @@ async def run_reminder_cycle(notifier: TelegramNotifier | None = None) -> int:
         try:
             await notifier.send_medication_reminder(
                 item.telegram_chat_id, REMINDER_MESSAGE
+            )
+            record_send(
+                account_id=item.account_id,
+                shift_date=item.shift_date,
+                reminder_dt=item.reminder_dt,
+                source=SOURCE_JOB,
             )
             sent += 1
         except Exception as e:

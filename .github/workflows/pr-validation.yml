@@ -77,6 +77,8 @@ jobs:
           python -c "from src.services.image_processor import process_schedule_image; print('✓ Image processor imports OK')"
           python -c "from src.services.calendar_service import CalendarService; print('✓ Calendar service imports OK')"
           python -c "from src.bot.handlers import setup_handlers; print('✓ Handlers imports OK')"
+          python -c "from src.admin_bot.main import main; print('✓ Admin bot imports OK')"
+          python -c "from src.api.routers.admin import router; print('✓ Admin routes imports OK')"
 
       - name: Build Docker image (dry-run)
         run: |

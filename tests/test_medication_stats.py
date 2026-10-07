@@ -123,3 +123,51 @@ class TestGetAdherenceRate:
     def test_days_outside_window_ignored(self) -> None:
         medication_stats.record_taken(1, FIXED_TODAY - timedelta(days=40))
         assert medication_stats.get_adherence_rate(1, days=30) == pytest.approx(0.0)
+
+
+class TestRemoveTakenAndPreview:
+    """Tests for unlog and streak preview helpers."""
+
+    def test_remove_taken_deletes_row(self) -> None:
+        medication_stats.record_taken(1, FIXED_TODAY)
+        assert medication_stats.remove_taken(1, FIXED_TODAY) is True
+        assert medication_stats.get_current_streak(1) == 0
+
+    def test_remove_taken_missing_returns_false(self) -> None:
+        assert medication_stats.remove_taken(1, FIXED_TODAY) is False
+
+    def test_list_taken_dates_window(self) -> None:
+        medication_stats.record_taken(1, date(2025, 6, 14))
+        medication_stats.record_taken(1, FIXED_TODAY)
+        medication_stats.record_taken(1, date(2025, 6, 10))
+        found = medication_stats.list_taken_dates(1, date(2025, 6, 13), FIXED_TODAY)
+        assert found == [date(2025, 6, 14), FIXED_TODAY]
+
+    def test_day_statuses_marks_missed(self) -> None:
+        medication_stats.record_taken(1, FIXED_TODAY)
+        statuses = medication_stats.get_day_statuses(1, days=3)
+        assert [s[0] for s in statuses] == [
+            date(2025, 6, 13),
+            date(2025, 6, 14),
+            FIXED_TODAY,
+        ]
+        assert [s[1] for s in statuses] == [False, False, True]
+
+    def test_preview_add_dates(self) -> None:
+        medication_stats.record_taken(1, date(2025, 6, 14))
+        assert medication_stats.get_current_streak(1) == 0
+        preview = medication_stats.preview_current_streak(
+            1, add_dates=[FIXED_TODAY]
+        )
+        assert preview == 2
+        assert medication_stats.get_current_streak(1) == 0
+
+    def test_preview_remove_dates(self) -> None:
+        medication_stats.record_taken(1, date(2025, 6, 14))
+        medication_stats.record_taken(1, FIXED_TODAY)
+        assert medication_stats.get_current_streak(1) == 2
+        preview = medication_stats.preview_current_streak(
+            1, remove_dates=[FIXED_TODAY]
+        )
+        assert preview == 0
+        assert medication_stats.get_current_streak(1) == 2

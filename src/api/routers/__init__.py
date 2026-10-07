@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from src.api.routers import health, medication, schedules
+from src.api.routers import admin, health, medication, schedules
 
 
 def build_api_router() -> APIRouter:
@@ -13,4 +13,5 @@ def build_api_router() -> APIRouter:
     router.include_router(health.router)
     router.include_router(schedules.router)
     router.include_router(medication.router)
+    router.include_router(admin.router)
     return router
