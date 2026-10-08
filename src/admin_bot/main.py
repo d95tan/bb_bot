@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import time
 
 from telegram.ext import Application
 
@@ -38,12 +39,15 @@ def main() -> None:
         )
         sys.exit(1)
 
-    if not settings.admin_telegram_bot_token:
-        logger.error("ADMIN_TELEGRAM_BOT_TOKEN is not set.")
-        sys.exit(1)
-    if not settings.authorized_admin_user_ids:
-        logger.error("ADMIN_TELEGRAM_USER_IDS is not set.")
-        sys.exit(1)
+    if not settings.admin_telegram_bot_token or not settings.authorized_admin_user_ids:
+        logger.warning(
+            "Admin bot idle: set ADMIN_TELEGRAM_BOT_TOKEN and ADMIN_TELEGRAM_USER_IDS."
+        )
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            return
 
     application = (
         Application.builder()

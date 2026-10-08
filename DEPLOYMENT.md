@@ -70,14 +70,14 @@ Staging:
 
 ```bash
 COMPOSE_PROJECT_NAME=bb_bot_staging BB_BOT_TAG=staging API_HOST_PORT=8001 \
-  docker compose -f docker-compose.yml -f docker-compose.nas.yml --profile admin up -d
+  docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
 ```
 
 Production (example pin):
 
 ```bash
 COMPOSE_PROJECT_NAME=bb_bot_prd BB_BOT_TAG=0.4.0 \
-  docker compose -f docker-compose.yml -f docker-compose.nas.yml --profile admin up -d
+  docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
 ```
 
 Point each project at its own directory (or bind mounts) for `data/`, `config/`, and `.env`. After a new `develop` merge, restage with `docker compose … pull && up -d` — the tag string stays `staging`.
@@ -127,8 +127,8 @@ Optional: To save debug images
 **Reminder acknowledgments:**
 
 - **With docker-compose:** Redis, FastAPI (`api`), and Telegram user-bot (`user-bot`) run in the same stack. The API owns OCR, calendar sync, and medication reminders; the bot is a thin Telegram client. Reminder state is stored in the `redis_data` volume and survives restarts.
-- **Without compose (e.g. TrueNAS custom app):** Run **two** containers from the same image — one with `python -m src.api.main`, one with `python -m src.main` — sharing `/app/data` and Redis. Set `API_BASE_URL` on the bot to reach the API. Or leave `REDIS_URL` unset on the API for file-based storage (`data/reminder_acknowledgments.json`) and mount `/app/data` for persistence.
-- **Admin bot (optional):** Third container, same image tag, command `python -m src.admin_bot.main`, env `ADMIN_TELEGRAM_BOT_TOKEN` + `ADMIN_TELEGRAM_USER_IDS` + `API_BASE_URL`. You can omit it until you want admin commands. After it is running, remove your id from `TELEGRAM_USER_IDS` so family reminders only go to the user-bot account.
+- **Without compose (e.g. TrueNAS custom app):** Run **three** containers from the same image — API (`python -m src.api.main`), user-bot (`python -m src.main`), admin-bot (`python -m src.admin_bot.main`) — sharing `/app/data` and Redis. Set `API_BASE_URL` on **both bots** to the API container on the Docker network (for example `http://bb-bot-staging-api:8000`), not `http://localhost:8000`. Starting the admin process in the API app's shell talks to localhost and fails with "All connection attempts failed". Or leave `REDIS_URL` unset on the API for file-based storage (`data/reminder_acknowledgments.json`) and mount `/app/data` for persistence.
+- **Admin bot:** Same image tag, `ADMIN_TELEGRAM_BOT_TOKEN` + `ADMIN_TELEGRAM_USER_IDS` + `API_BASE_URL`. After it is running, remove your id from `TELEGRAM_USER_IDS` so family reminders only go to the user-bot account.
 
 **Note:** A single container that only runs `python -m src.main` is no longer enough; the API process must be running for uploads, schedule, reminders, and medication stats.
 

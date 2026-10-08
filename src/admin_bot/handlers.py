@@ -38,6 +38,22 @@ def is_authorized_admin(user_id: int) -> bool:
     return user_id in get_settings().authorized_admin_user_ids
 
 
+async def _require_admin(update: Update) -> bool:
+    """
+    Args:
+     update(Update): Incoming Telegram update.
+
+    Returns:
+     bool: True if the sender may use admin commands.
+    """
+    if not update.effective_user or not update.message:
+        return False
+    if not is_authorized_admin(update.effective_user.id):
+        await update.message.reply_text(replies.UNAUTHORIZED)
+        return False
+    return True
+
+
 def _backend() -> BackendClient:
     return BackendClient()
 
@@ -130,26 +146,20 @@ def _format_sends(sends: list[dict], tz: str) -> list[str]:
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
-        await update.message.reply_text(replies.UNAUTHORIZED)
+    if not await _require_admin(update):
         return
     await update.message.reply_text(replies.START_TEXT, parse_mode="Markdown")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
+    if not await _require_admin(update):
         return
-    if not is_authorized_admin(update.effective_user.id):
-        return
-    await update.message.reply_text(replies.HELP_TEXT, parse_mode="Markdown")
+    # Plain text: Telegram Markdown treats [optional] as a broken link entity.
+    await update.message.reply_text(replies.HELP_TEXT)
 
 
 async def health_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     try:
         data = await _backend().admin_health(update.effective_user.id)
@@ -166,9 +176,7 @@ async def health_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def reminder_status_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     try:
         data = await _backend().admin_reminder_status(update.effective_user.id)
@@ -192,9 +200,7 @@ async def reminder_status_command(
 async def trigger_reminder_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     await update.message.reply_text(
         replies.TRIGGER_PROMPT,
@@ -204,9 +210,7 @@ async def trigger_reminder_command(
 
 
 async def patch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     parsed = _parse_date_args(list(context.args or []))
     if parsed is None:
@@ -237,9 +241,7 @@ async def patch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def unlog_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     parsed = _parse_date_args(list(context.args or []))
     if parsed is None:
@@ -270,9 +272,7 @@ async def unlog_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     days = _parse_bounded_int(list(context.args or []), 30, 1, 180)
     if days is None:
@@ -308,9 +308,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def shifts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     days = _parse_bounded_int(list(context.args or []), 7, 1, 14)
     if days is None:
@@ -341,9 +339,7 @@ async def shifts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     days = _parse_bounded_int(list(context.args or []), 30, 1, 180)
     if days is None:
@@ -363,9 +359,7 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def audit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.effective_user or not update.message:
-        return
-    if not is_authorized_admin(update.effective_user.id):
+    if not await _require_admin(update):
         return
     try:
         data = await _backend().admin_audit(update.effective_user.id)

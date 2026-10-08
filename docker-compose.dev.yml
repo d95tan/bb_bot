@@ -1,4 +1,4 @@
-# Dev override: hot-reload API + user-bot (+ admin-bot with --profile admin)
+# Dev override: hot-reload API + user-bot + admin-bot
 services:
   api:
     build:
@@ -39,7 +39,6 @@ services:
       context: .
       args:
         INSTALL_DEV: "true"
-    profiles: ["admin"]
     command:
       [
         "sh",

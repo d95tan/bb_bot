@@ -54,7 +54,6 @@ services:
   admin-bot:
     build: .
     restart: unless-stopped
-    profiles: ["admin"]
     env_file:
       - .env
     environment:

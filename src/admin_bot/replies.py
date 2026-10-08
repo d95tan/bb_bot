@@ -9,16 +9,16 @@ Patch logs, check reminders, and inspect adherence. This bot talks to the API on
 """
 
 HELP_TEXT = """
-*Admin commands*
+Admin commands
 
 /health — version, calendar, data mount
-/reminder\\_status — if/when today's reminder fired
-/trigger\\_reminder — send a reminder now (confirm)
-/patch `YYYY-MM-DD` `[YYYY-MM-DD]` `[note]` — preview then confirm
-/unlog `YYYY-MM-DD` `[YYYY-MM-DD]` `[note]` — preview then confirm
-/stats `[days]` — streaks, rate, missed days (default 30, max 180)
-/shifts `[days]` — upcoming calendar (default 7)
-/export `[days]` — CSV document
+/reminder_status — if/when today's reminder fired
+/trigger_reminder — send a reminder now (confirm)
+/patch YYYY-MM-DD [end date] [note] — preview then confirm
+/unlog YYYY-MM-DD [end date] [note] — preview then confirm
+/stats [days] — streaks, rate, missed days (default 30, max 180)
+/shifts [days] — upcoming calendar (default 7)
+/export [days] — CSV document
 /audit — recent admin actions
 """
 
