@@ -161,19 +161,17 @@ Two ways to run and test on your machine.
 
 ### Option A: 🐳 Docker Compose (simplest)
 
-Runs the **API**, **Telegram user-bot**, and Redis together (local **dev**). The admin bot is opt-in (`--profile admin`). TrueNAS **staging** (`:staging` from `develop`) and **prd** (pinned version from `main`) are described in [DEPLOYMENT.md](DEPLOYMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+Runs the **API**, **Telegram user-bot**, **admin bot**, and Redis together (local **dev**). The admin container stays idle unless `ADMIN_TELEGRAM_BOT_TOKEN` and `ADMIN_TELEGRAM_USER_IDS` are set. TrueNAS **staging** (`:staging` from `develop`) and **prd** (pinned version from `main`) are described in [DEPLOYMENT.md](DEPLOYMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1. **Prepare `.env`** (copy from `env.example`, fill in `TELEGRAM_BOT_TOKEN`, `TELEGRAM_USER_IDS`, Google credentials, and set a strong `API_KEY`). You still need to run `telebot-auth` once (e.g. in a local venv) to get `GOOGLE_REFRESH_TOKEN`, then put it in `.env`.
 2. **Start the stack:**
 
    ```bash
    docker compose up -d
-   # optional admin bot (needs ADMIN_TELEGRAM_BOT_TOKEN + ADMIN_TELEGRAM_USER_IDS):
-   docker compose --profile admin up -d
    ```
 
-   This starts Redis, the FastAPI backend (OCR, calendar, reminders), and the Telegram user-bot. Compose sets `REDIS_URL` and `API_BASE_URL=http://api:8000` for the bots.
-3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f api user-bot`.
+   This starts Redis, the FastAPI backend (OCR, calendar, reminders), the Telegram user-bot, and the admin bot. Compose sets `REDIS_URL` and `API_BASE_URL=http://api:8000` for the bots.
+3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f api user-bot admin-bot`.
 4. **Stop:** `docker compose down`. Add `-v` to remove the Redis volume and lose reminder state.
 
 ### Option B: 🏠 Run locally (venv)
