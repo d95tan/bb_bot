@@ -27,7 +27,7 @@ Day-to-day workflow:
 3. Merge to `develop` republishes GHCR tag `staging` (same name, new image). TrueNAS staging pulls `ghcr.io/d95tan/bb_bot:staging`.
 4. When staging looks good, bump `version` in `pyproject.toml` on `develop` (human decision: major, minor, or patch).
 5. Open a pull request from `develop` into `main`.
-6. Wait for the required checks, then merge. Production publishes `latest` plus the immutable `pyproject.toml` version (e.g. `0.4.0`). Pin TrueNAS production to that version tag, not `latest`.
+6. Wait for the required checks, then merge. Production publishes `latest` plus the immutable `pyproject.toml` version (e.g. `0.4.1`). Pin TrueNAS production to that version tag, not `latest`.
 
 A push to `main` fails if that version tag already exists in GHCR, so the bump on `develop` must be a version that has not been published yet. Version bumps stay a human process; there is no auto-bump. The `staging` tag is overwritten on purpose.
 

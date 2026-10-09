@@ -5,7 +5,7 @@
 The GitHub Action publishes to GHCR:
 
 - Merge to **`develop`**: tag `staging` (overwritten each time)
-- Merge to **`main`**: tags `latest` and the immutable `pyproject.toml` version (e.g. `0.4.0`)
+- Merge to **`main`**: tags `latest` and the immutable `pyproject.toml` version (e.g. `0.4.1`)
 
 ### Manual Trigger
 
@@ -76,7 +76,7 @@ COMPOSE_PROJECT_NAME=bb_bot_staging BB_BOT_TAG=staging API_HOST_PORT=8001 \
 Production (example pin):
 
 ```bash
-COMPOSE_PROJECT_NAME=bb_bot_prd BB_BOT_TAG=0.4.0 \
+COMPOSE_PROJECT_NAME=bb_bot_prd BB_BOT_TAG=0.4.1 \
   docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
 ```
 
@@ -89,7 +89,7 @@ You can deploy this as a "Custom App" in TrueNAS Scale. Create **two** apps (`bb
 ### Application Configuration
 
 - **Application Name**: `bb-bot-staging` or `bb-bot`
-- **Container Image**: `ghcr.io/d95tan/bb_bot:staging` or `ghcr.io/d95tan/bb_bot:0.4.0`
+- **Container Image**: `ghcr.io/d95tan/bb_bot:staging` or `ghcr.io/d95tan/bb_bot:0.4.1`
 - **Image Pull Policy**: `Always` (ensures you get updates on restart)
 - **Command**: leave the image default (`python -m src.stack`). That starts API + family bot + admin in **this one container**. If Command is `python -m src.main`, only the family bot runs and every API call fails with "All connection attempts failed".
 

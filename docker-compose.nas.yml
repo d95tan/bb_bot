@@ -6,7 +6,7 @@
 #     docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
 #
 # Production (pin the version tag, not latest):
-#   COMPOSE_PROJECT_NAME=bb_bot_prd BB_BOT_TAG=0.4.0 \
+#   COMPOSE_PROJECT_NAME=bb_bot_prd BB_BOT_TAG=0.4.1 \
 #     docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
 #
 # Each stack needs its own host paths for ./data and ./config, its own .env
