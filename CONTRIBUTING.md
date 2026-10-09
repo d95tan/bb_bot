@@ -63,3 +63,5 @@ Two TrueNAS stacks: different compose project names (or app names), data mounts,
 - `v*.*.*` tags and **workflow_dispatch** also publish.
 
 **protect-develop** and **protect-main** require those three PR Validation jobs. The workflow YAML only *runs* the checks; the rulesets are what block merge when they are red. Do not require **Docker Build and Publish** as a status check. Repository admin bypass on the PR rulesets is the emergency escape if Actions is down.
+
+Iceboxed ideas live in [FUTURE.md](FUTURE.md).
