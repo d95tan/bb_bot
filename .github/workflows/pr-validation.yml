@@ -79,6 +79,7 @@ jobs:
           python -c "from src.bot.handlers import setup_handlers; print('✓ Handlers imports OK')"
           python -c "from src.admin_bot.main import main; print('✓ Admin bot imports OK')"
           python -c "from src.api.routers.admin import router; print('✓ Admin routes imports OK')"
+          python -c "from src.stack import main; print('✓ Combined stack imports OK')"
 
       - name: Build Docker image (dry-run)
         run: |
