@@ -380,7 +380,7 @@ bb_bot/
 
 ## 🧑‍💻 Development
 
-Collate work on `develop`, then open a pull request into `main` to publish. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching strategy and when to bump the version.
+Collate work on `develop`, then open a pull request into `main` to publish. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching strategy and when to bump the version. Iceboxed work is in [FUTURE.md](FUTURE.md).
 
 ### 🧪 Running Tests
 
