@@ -91,6 +91,7 @@ You can deploy this as a "Custom App" in TrueNAS Scale. Create **two** apps (`bb
 - **Application Name**: `bb-bot-staging` or `bb-bot`
 - **Container Image**: `ghcr.io/d95tan/bb_bot:staging` or `ghcr.io/d95tan/bb_bot:0.4.0`
 - **Image Pull Policy**: `Always` (ensures you get updates on restart)
+- **Command**: leave the image default (`python -m src.stack`). That starts API + family bot + admin in **this one container**. If Command is `python -m src.main`, only the family bot runs and every API call fails with "All connection attempts failed".
 
 ### Environment Variables
 
@@ -100,10 +101,10 @@ Add the following environment variables in the "Container Environment Variables"
 | ---------------------- | ------------------------------------------- |
 | `TELEGRAM_BOT_TOKEN`   | Your Telegram Bot Token                     |
 | `TELEGRAM_USER_IDS`    | Your Telegram User ID(s), comma-separated   |
-| `ADMIN_TELEGRAM_BOT_TOKEN` | Admin bot token (only if you run the admin container) |
+| `ADMIN_TELEGRAM_BOT_TOKEN` | Admin bot token (same app; admin idles if unset) |
 | `ADMIN_TELEGRAM_USER_IDS` | Your Telegram user id for the admin bot     |
 | `API_KEY`              | Shared secret the user-bot sends to the API |
-| `API_BASE_URL`         | `http://api:8000` when API is another container |
+| `API_BASE_URL`         | Leave unset for a Custom App (`src.stack` uses `http://127.0.0.1:8000`). Compose sets `http://api:8000`. |
 | `GOOGLE_CLIENT_ID`     | Your Google OAuth Client ID                 |
 | `GOOGLE_CLIENT_SECRET` | Your Google OAuth Client Secret             |
 | `GOOGLE_REFRESH_TOKEN` | The token you generated in step 2           |
@@ -127,10 +128,7 @@ Optional: To save debug images
 **Reminder acknowledgments:**
 
 - **With docker-compose:** Redis, FastAPI (`api`), and Telegram user-bot (`user-bot`) run in the same stack. The API owns OCR, calendar sync, and medication reminders; the bot is a thin Telegram client. Reminder state is stored in the `redis_data` volume and survives restarts.
-- **Without compose (e.g. TrueNAS custom app):** Run **three** containers from the same image — API (`python -m src.api.main`), user-bot (`python -m src.main`), admin-bot (`python -m src.admin_bot.main`) — sharing `/app/data` and Redis. Set `API_BASE_URL` on **both bots** to the API container on the Docker network (for example `http://bb-bot-staging-api:8000`), not `http://localhost:8000`. Starting the admin process in the API app's shell talks to localhost and fails with "All connection attempts failed". Or leave `REDIS_URL` unset on the API for file-based storage (`data/reminder_acknowledgments.json`) and mount `/app/data` for persistence.
-- **Admin bot:** Same image tag, `ADMIN_TELEGRAM_BOT_TOKEN` + `ADMIN_TELEGRAM_USER_IDS` + `API_BASE_URL`. After it is running, remove your id from `TELEGRAM_USER_IDS` so family reminders only go to the user-bot account.
-
-**Note:** A single container that only runs `python -m src.main` is no longer enough; the API process must be running for uploads, schedule, reminders, and medication stats.
+- **Without compose (TrueNAS Custom App):** One container, image CMD `python -m src.stack`. That process starts FastAPI on `127.0.0.1:8000`, then the family bot and admin bot. Leave `API_BASE_URL` unset. Leave `REDIS_URL` unset for file-based storage (`data/reminder_acknowledgments.json`) and mount `/app/data`. After admin is running, remove your id from `TELEGRAM_USER_IDS` so family reminders only go to the user-bot account.
 
 ## 4. Troubleshooting
 

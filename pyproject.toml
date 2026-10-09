@@ -36,6 +36,7 @@ dev = [
 telebot = "src.main:main"
 telebot-api = "src.api.main:main"
 telebot-admin = "src.admin_bot.main:main"
+telebot-stack = "src.stack:main"
 telebot-auth = "scripts.auth_setup:main"
 telebot-dev = "src.dev:main"
 
