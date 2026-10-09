@@ -1,0 +1,29 @@
+# TrueNAS / GHCR: pull a published tag instead of building locally.
+# Do not use this file on its own — merge it over docker-compose.yml.
+#
+# Staging:
+#   COMPOSE_PROJECT_NAME=bb_bot_staging BB_BOT_TAG=staging API_HOST_PORT=8001 \
+#     docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
+#
+# Production (pin the version tag, not latest):
+#   COMPOSE_PROJECT_NAME=bb_bot_prd BB_BOT_TAG=0.4.1 \
+#     docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d
+#
+# Each stack needs its own host paths for ./data and ./config, its own .env
+# (Telegram tokens + GOOGLE_CALENDAR_ID), and a distinct COMPOSE_PROJECT_NAME.
+
+services:
+  api:
+    image: ghcr.io/d95tan/bb_bot:${BB_BOT_TAG:-staging}
+    pull_policy: always
+    build: !reset null
+
+  user-bot:
+    image: ghcr.io/d95tan/bb_bot:${BB_BOT_TAG:-staging}
+    pull_policy: always
+    build: !reset null
+
+  admin-bot:
+    image: ghcr.io/d95tan/bb_bot:${BB_BOT_TAG:-staging}
+    pull_policy: always
+    build: !reset null

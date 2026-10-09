@@ -27,6 +27,12 @@ class BackendClient:
     def _headers(self) -> dict[str, str]:
         return {"X-API-Key": self._api_key}
 
+    def _admin_headers(self, admin_telegram_user_id: int) -> dict[str, str]:
+        return {
+            **self._headers(),
+            "X-Admin-Telegram-User-Id": str(admin_telegram_user_id),
+        }
+
     async def upload_schedule(
         self, image_bytes: bytes, filename: str = "schedule.jpg"
     ) -> dict[str, Any]:
@@ -74,5 +80,128 @@ class BackendClient:
     async def health(self) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(f"{self._base_url}/health")
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_health(self, admin_telegram_user_id: int) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{self._base_url}/admin/health",
+                headers=self._admin_headers(admin_telegram_user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_reminder_status(
+        self, admin_telegram_user_id: int
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._base_url}/admin/reminders/status",
+                headers=self._admin_headers(admin_telegram_user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_trigger_reminder(
+        self, admin_telegram_user_id: int
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self._base_url}/admin/reminders/trigger",
+                headers=self._admin_headers(admin_telegram_user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_patch(
+        self,
+        admin_telegram_user_id: int,
+        start_date: str,
+        end_date: str | None = None,
+        note: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{self._base_url}/admin/medication/patch",
+                headers=self._admin_headers(admin_telegram_user_id),
+                json={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "note": note,
+                    "dry_run": dry_run,
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_unlog(
+        self,
+        admin_telegram_user_id: int,
+        start_date: str,
+        end_date: str | None = None,
+        note: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{self._base_url}/admin/medication/unlog",
+                headers=self._admin_headers(admin_telegram_user_id),
+                json={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "note": note,
+                    "dry_run": dry_run,
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_stats(
+        self, admin_telegram_user_id: int, days: int = 30
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._base_url}/admin/medication/stats",
+                headers=self._admin_headers(admin_telegram_user_id),
+                params={"days": days},
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_shifts(
+        self, admin_telegram_user_id: int, days: int = 7
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.get(
+                f"{self._base_url}/admin/shifts",
+                headers=self._admin_headers(admin_telegram_user_id),
+                params={"days": days},
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def admin_export(
+        self, admin_telegram_user_id: int, days: int = 30
+    ) -> str:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._base_url}/admin/export",
+                headers=self._admin_headers(admin_telegram_user_id),
+                params={"days": days},
+            )
+            response.raise_for_status()
+            return response.text
+
+    async def admin_audit(
+        self, admin_telegram_user_id: int, limit: int = 20
+    ) -> dict[str, Any]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._base_url}/admin/audit",
+                headers=self._admin_headers(admin_telegram_user_id),
+                params={"limit": limit},
+            )
             response.raise_for_status()
             return response.json()

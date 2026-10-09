@@ -259,6 +259,38 @@ def try_acquire_reminder_slot(user_id: int, reminder_dt: datetime) -> bool:
         return True
 
 
+def clear_acknowledgment(user_id: int, shift_date: date) -> None:
+    """
+    Args:
+     user_id(int): Account id.
+     shift_date(date): Shift date whose reminder ack should be cleared.
+
+    Returns:
+     None
+    """
+    r = _redis_client()
+    if r is not None:
+        try:
+            r.delete(_ack_key(user_id, shift_date))
+        except Exception as e:
+            logger.warning("Redis delete failed: %s", e)
+    else:
+        ack = _get_acknowledged_cache()
+        key = f"{user_id}:{shift_date.isoformat()}"
+        if key in ack:
+            ack.discard(key)
+            _save_acknowledged_file(ack)
+    if user_id in _pending_reminders:
+        pending_date, _ = _pending_reminders[user_id]
+        if pending_date == shift_date:
+            del _pending_reminders[user_id]
+    logger.info(
+        "Cleared medication acknowledgment for user %s (shift date %s)",
+        user_id,
+        shift_date.isoformat(),
+    )
+
+
 def is_medication_acknowledged(
     user_id: int, shift_date: Optional[date] = None
 ) -> bool:

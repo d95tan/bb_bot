@@ -30,8 +30,9 @@ RUN pip install --no-cache-dir . && \
 ARG BUILD_VERSION=
 ENV BUILD_VERSION=${BUILD_VERSION}
 
-# Create directory for debug output (optional)
-RUN mkdir -p /app/debug
+# Create directory for debug output (optional) and reminder JSON on Custom Apps.
+RUN mkdir -p /app/debug /app/data
 
-# Default image entry: Telegram user-bot. Compose overrides API to src.api.main.
-CMD ["python", "-m", "src.main"]
+# TrueNAS Custom App: API + family bot + admin in one container.
+# Compose overrides this per service (src.api.main / src.main / src.admin_bot.main).
+CMD ["python", "-m", "src.stack"]

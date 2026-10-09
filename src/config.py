@@ -24,11 +24,28 @@ class Settings(BaseSettings):
         ...,
         description="Comma-separated list of authorized Telegram user IDs"
     )
+    admin_telegram_bot_token: Optional[str] = Field(
+        default=None,
+        description="Separate BotFather token for the admin Telegram bot",
+    )
+    admin_telegram_user_ids: str = Field(
+        default="",
+        description="Comma-separated Telegram user IDs allowed to use the admin bot",
+    )
 
     @property
     def authorized_user_ids(self) -> list[int]:
         """Parse telegram_user_ids into a list of integers."""
         return [int(uid.strip()) for uid in self.telegram_user_ids.split(",") if uid.strip()]
+
+    @property
+    def authorized_admin_user_ids(self) -> list[int]:
+        """Parse admin_telegram_user_ids into a list of integers."""
+        return [
+            int(uid.strip())
+            for uid in self.admin_telegram_user_ids.split(",")
+            if uid.strip()
+        ]
 
     # Backend API (bot → FastAPI). Shared secret authenticates the user-bot client.
     api_key: str = Field(

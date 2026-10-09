@@ -15,3 +15,27 @@ async def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
         )
+
+
+async def require_admin_identity(
+    x_admin_telegram_user_id: int | None = Header(
+        default=None, alias="X-Admin-Telegram-User-Id"
+    ),
+) -> int:
+    """
+    Args:
+     x_admin_telegram_user_id(int | None): Telegram id from the admin-bot.
+
+    Returns:
+     int: The verified admin Telegram user id.
+
+    Raises:
+     HTTPException: 403 when the id is missing or not in ADMIN_TELEGRAM_USER_IDS.
+    """
+    allowed = get_settings().authorized_admin_user_ids
+    if not x_admin_telegram_user_id or x_admin_telegram_user_id not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized admin user",
+        )
+    return x_admin_telegram_user_id

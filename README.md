@@ -161,7 +161,7 @@ Two ways to run and test on your machine.
 
 ### Option A: 🐳 Docker Compose (simplest)
 
-Runs the **API**, **Telegram user-bot**, and Redis together.
+Runs the **API**, **Telegram user-bot**, **admin bot**, and Redis together (local **dev**). The admin container stays idle unless `ADMIN_TELEGRAM_BOT_TOKEN` and `ADMIN_TELEGRAM_USER_IDS` are set. TrueNAS **staging** (`:staging` from `develop`) and **prd** (pinned version from `main`) are described in [DEPLOYMENT.md](DEPLOYMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1. **Prepare `.env`** (copy from `env.example`, fill in `TELEGRAM_BOT_TOKEN`, `TELEGRAM_USER_IDS`, Google credentials, and set a strong `API_KEY`). You still need to run `telebot-auth` once (e.g. in a local venv) to get `GOOGLE_REFRESH_TOKEN`, then put it in `.env`.
 2. **Start the stack:**
@@ -170,8 +170,8 @@ Runs the **API**, **Telegram user-bot**, and Redis together.
    docker compose up -d
    ```
 
-   This starts Redis, the FastAPI backend (OCR, calendar, reminders), and the Telegram user-bot. Compose sets `REDIS_URL` and `API_BASE_URL=http://api:8000` for the bot.
-3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f api user-bot`.
+   This starts Redis, the FastAPI backend (OCR, calendar, reminders), the Telegram user-bot, and the admin bot. Compose sets `REDIS_URL` and `API_BASE_URL=http://api:8000` for the bots.
+3. **Test:** Open Telegram, send your bot a schedule screenshot. Check logs with `docker compose logs -f api user-bot admin-bot`.
 4. **Stop:** `docker compose down`. Add `-v` to remove the Redis volume and lose reminder state.
 
 ### Option B: 🏠 Run locally (venv)
@@ -201,6 +201,8 @@ Useful for debugging, OCR tweaks, or running tests. You need **two processes**: 
    telebot              # or: python -m src.main
    # or with reload:
    telebot-dev
+   # optional admin bot (separate BotFather token):
+   telebot-admin        # or: python -m src.admin_bot.main
    ```
 
 6. **Test:** Send a schedule image to the bot in Telegram. For OCR-only tests without the bot: `python scripts/test_ocr.py sample_images/01_2026.jpg` (run from repo root with `PYTHONPATH=.` or install the package).
@@ -223,6 +225,8 @@ Useful for debugging, OCR tweaks, or running tests. You need **two processes**: 
 | `/schedule`        | View your upcoming schedule from Google Calendar   |
 | `/took_medication` | Mark medication as taken today                     |
 | `/version`         | Show deployed version                              |
+
+Admin bot (`telebot-admin`): `/health`, `/reminder_status`, `/trigger_reminder`, `/patch`, `/unlog`, `/stats`, `/shifts`, `/export`, `/audit`.
 
 ### 📤 Uploading a Schedule
 
@@ -376,7 +380,7 @@ bb_bot/
 
 ## 🧑‍💻 Development
 
-Collate work on `develop`, then open a pull request into `main` to publish. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching strategy and when to bump the version.
+Collate work on `develop`, then open a pull request into `main` to publish. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branching strategy and when to bump the version. Iceboxed work is in [FUTURE.md](FUTURE.md).
 
 ### 🧪 Running Tests
 

@@ -144,7 +144,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.effective_user or not update.message:
+        return
     if not is_authorized_user(update.effective_user.id):
+        await update.message.reply_text(replies.UNAUTHORIZED)
         return
     await update.message.reply_text(replies.HELP_TEXT, parse_mode="Markdown")
 
